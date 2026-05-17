@@ -5,6 +5,6 @@
 //This is the main entry point.
 
 int main(){
-    std::cout << "Hello, World!" << std::endl;
+    Log("Hello, World!");
     return 0;
 }

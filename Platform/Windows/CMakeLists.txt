@@ -1,2 +1,35 @@
-cmake_minimum_required(VERSION 3.20)
-cmake_policy(VERSION 3.20)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if (NOT MSVC)
+    message(FATAL_ERROR "MSVC only supported for Windows")
+endif()
+
+project(MyGameWindows)
+
+set(CORE_SOURCE
+    ${CMAKE_SOURCE_DIR}/Core/cpp/Log/Log.cpp
+)
+
+set(CORE_INCLUDE
+    ${CMAKE_SOURCE_DIR}/Core/cpp/include)
+
+add_executable(MyGame
+    cpp/main.cpp
+    ${CORE_SOURCE}
+)
+
+target_include_directories(MyGame PRIVATE
+    ${CORE_INCLUDE}
+)
+
+set_target_properties(MyGame PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OUT_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG ${OUT_DIR}
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${OUT_DIR}
+)
