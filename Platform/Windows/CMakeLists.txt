@@ -6,11 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if (NOT MSVC)
-    message(FATAL_ERROR "MSVC only supported for Windows")
-endif()
-
-project(MyGameWindows)
+project(MyGame)
 
 set(CORE_SOURCE
     ${CMAKE_SOURCE_DIR}/Core/cpp/Log/Log.cpp

@@ -1,0 +1,70 @@
+name: MyGame
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Repo
+        uses: actions/checkout@v4
+
+      - name: CMake
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyGame
+          path: Executables/Windows
+
+  linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repo
+        uses: actions/checkout@v4
+      
+      - name: Clang
+        run: sudo apt update && sudo apt -y ninja-build clang cmake
+
+      - name: CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+      
+      - name: Build
+        run: cmake --build build
+
+      - name: Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyGame
+          path: Executables/Linux
+
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Repo
+        uses: actions/checkout@v4
+
+      - name: Ninja
+        run: brew install ninja
+
+      - name: CMake
+        run: cmake -S . -B build -G Ninja
+
+      - name: Build
+        run: cmake --build build
+
+      - name: MacOS
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyGame
+          path: Executables/MacOS
+       
