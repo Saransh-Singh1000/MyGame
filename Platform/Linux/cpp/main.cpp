@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "../../Core/cpp/include/api.hpp"
+#include "api.hpp"
 
 //This is the main entry point.
 
