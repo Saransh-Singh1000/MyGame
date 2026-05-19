@@ -13,7 +13,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: CMake
-        run: cmake -S . -B build -G Ninja
+        run: >
+         cmake -S . -B build -G Ninja
+         -DCMAKE_C_COMPILER=clang
+         -DCMAKE_CXX_COMPILER=clang++
 
       - name: Build
         run: cmake --build build
@@ -62,7 +65,10 @@ jobs:
         run: brew install ninja
 
       - name: CMake
-        run: cmake -S . -B build -G Ninja
+        run: >
+         cmake -S . -B build -G Ninja
+         -DCMAKE_C_COMPILER=clang
+         -DCMAKE_CXX_COMPILER=clang++
 
       - name: Build
         run: cmake --build build
