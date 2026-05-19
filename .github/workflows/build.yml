@@ -24,7 +24,7 @@ jobs:
           name: MyGameWin32
           path: Executables/Windows
 
-      - name: Windows
+      - name: Test
         run: ./Executable/Windows/MyGame.exe
   linux:
     runs-on: ubuntu-latest
@@ -48,7 +48,7 @@ jobs:
           name: MyGameLinux
           path: Executables/Linux
 
-      - name: Linux
+      - name: Test
         run: chmod +x ./Executable/Linux/MyGame && ./Executable/Linux/MyGame
 
   macos:
@@ -73,5 +73,5 @@ jobs:
           name: MyGameMacOS
           path: Executables/MacOS
        
-      - name: Test MacOS
+      - name: Test
         run: chmod +x ./Executable/MacOS/MyGame && ./Executable/MacOS/MyGame
