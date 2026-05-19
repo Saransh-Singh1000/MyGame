@@ -13,7 +13,8 @@ set(CORE_SOURCE
 )
 
 set(CORE_INCLUDE
-    ${CMAKE_SOURCE_DIR}/Core/cpp/include)
+    ${CMAKE_SOURCE_DIR}/Core/cpp/include
+)
 
 add_executable(MyGame
     cpp/main.mm
