@@ -21,7 +21,7 @@ jobs:
       - name: Windows
         uses: actions/upload-artifact@v4
         with:
-          name: MyGame
+          name: MyGameWin32
           path: Executables/Windows
 
   linux:
@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Clang
-        run: sudo apt update && sudo apt -y ninja-build clang cmake
+        run: sudo apt update && sudo apt install -y ninja-build clang cmake
 
       - name: CMake
         run: cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
@@ -43,7 +43,7 @@ jobs:
       - name: Linux
         uses: actions/upload-artifact@v4
         with:
-          name: MyGame
+          name: MyGameLinux
           path: Executables/Linux
 
   macos:
@@ -65,6 +65,6 @@ jobs:
       - name: MacOS
         uses: actions/upload-artifact@v4
         with:
-          name: MyGame
+          name: MyGameMacOS
           path: Executables/MacOS
        
