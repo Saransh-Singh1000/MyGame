@@ -1,1 +1,0 @@
-D:\Builder\my game\Platform\Android\CMakeLists.txt

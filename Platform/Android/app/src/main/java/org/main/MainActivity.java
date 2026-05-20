@@ -1,5 +1,6 @@
 package org.main;
 
+import android.util.Log;
 import android.app.Activity;
 import android.os.Bundle;
 
@@ -14,6 +15,11 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Log.e("MyApp", "JAVA BEFORE JNI");
+
         nativeInit();
+
+        Log.e("MyApp", "JAVA AFTER JNI");
     }
 }

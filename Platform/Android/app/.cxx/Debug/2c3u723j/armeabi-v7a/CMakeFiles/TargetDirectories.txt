@@ -1,3 +1,0 @@
-D:/Builder/my game/Platform/Android/app/.cxx/Debug/2c3u723j/armeabi-v7a/CMakeFiles/MyGame.dir
-D:/Builder/my game/Platform/Android/app/.cxx/Debug/2c3u723j/armeabi-v7a/CMakeFiles/edit_cache.dir
-D:/Builder/my game/Platform/Android/app/.cxx/Debug/2c3u723j/armeabi-v7a/CMakeFiles/rebuild_cache.dir

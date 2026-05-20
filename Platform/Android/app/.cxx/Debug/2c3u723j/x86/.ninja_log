@@ -1,8 +1,0 @@
-# ninja log v5
-10	354	8008895738589748	CMakeFiles/MyGame.dir/cpp/lib.cpp.o	18791ebfa222a2b8
-1	484	8008895739909578	CMakeFiles/MyGame.dir/D_/Builder/my_game/Core/cpp/Log/Log.cpp.o	ec497419a1da8bc8
-485	678	8008895741882304	../../../../build/intermediates/cxx/Debug/2c3u723j/obj/x86/libMyGame.so	f65a032cced0de43
-4	138	8008995618817466	CMakeFiles/MyGame.dir/cpp/lib.cpp.o	18791ebfa222a2b8
-139	588	8008995623350234	../../../../build/intermediates/cxx/Debug/2c3u723j/obj/x86/libMyGame.so	f65a032cced0de43
-29	420	8009095063581145	CMakeFiles/MyGame.dir/D_/Builder/my_game/Core/cpp/Log/Log.cpp.o	ec497419a1da8bc8
-421	750	8009095066559949	../../../../build/intermediates/cxx/Debug/2c3u723j/obj/x86/libMyGame.so	f65a032cced0de43

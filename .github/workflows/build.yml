@@ -5,6 +5,37 @@ on:
   pull_request:
 
 jobs:
+  android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repo
+        uses: actions/checkout@v4
+
+      - name: Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Licences
+        run: yes | sdkmanager --licences
+
+      - name: Install
+        run: sdkmanager "ndk;26.3.11579264"
+
+      - name: Build
+        working-directory: Platform/Android
+        run: ./gradlew assembleRelease
+
+      - name: Android
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyGameAndroid
+          
   windows:
     runs-on: windows-latest
 
@@ -29,6 +60,7 @@ jobs:
 
       - name: Test
         run: ./Executable/Windows/MyGame.exe
+
   linux:
     runs-on: ubuntu-latest
 
