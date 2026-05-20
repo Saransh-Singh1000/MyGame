@@ -39,7 +39,7 @@ jobs:
 
       - name: Rename
         run: |
-          mv Platform/Android/app/build/outputs/apk/release/app-release.apk \
+          mv Platform/Android/app/build/outputs/apk/release/app-release-unsigned.apk \
           Platform/Android/app/build/outputs/apk/release/MyGame-Android-${{ github.ref_name }}.apk
 
       - name: Release
