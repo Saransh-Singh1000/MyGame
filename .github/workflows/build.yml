@@ -45,6 +45,7 @@ jobs:
         with:
           files: Platform/Android/app/build/outputs/apk/release/*.apk
 
+  windows:
     runs-on: windows-latest
 
     steps:
