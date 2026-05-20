@@ -22,7 +22,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Licences
-        run: yes | sdkmanager --licences
+        run: yes | sdkmanager --licenses
 
       - name: Install
         run: sdkmanager "ndk;26.3.11579264"
@@ -35,7 +35,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MyGameAndroid
-          
+
   windows:
     runs-on: windows-latest
 
