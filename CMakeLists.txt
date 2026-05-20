@@ -3,7 +3,7 @@ cmake_policy(VERSION 3.20)
 
 project(MyGame)
 
-set(OUTPUT_ROOT "${CMAKE_SOURCE_DIR}/Executable")
+set(OUTPUT_ROOT "${CMAKE_SOURCE_DIR}/Executables")
 
 if (IOS)
     set(OUT_DIR "${OUTPUT_ROOT}/iOS")
