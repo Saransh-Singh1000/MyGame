@@ -2,7 +2,11 @@ name: MyGame
 
 on:
   push:
-  pull_request:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 jobs:
   android:
@@ -33,12 +37,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Android
-        uses: actions/upload-artifact@v4
-        with:
-          name: MyGameAndroid
+      - name: Rename
+        run: mv Platform/Android/app/build/outputs/apk/release/app-release.apk MyGame-Android-${{ github.ref_name }}.apk
 
-  windows:
+      - name: Release
+        uses: softprop/action-gh-release@v2
+        with:
+          files: Platform/Android/app/build/outputs/apk/release/*.apk
+
     runs-on: windows-latest
 
     steps:
@@ -54,14 +60,14 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Windows
-        uses: actions/upload-artifact@v4
-        with:
-          name: MyGameWin32
-          path: Executables/Windows
+      - name: Rename
+      run: ren Executables\Windows\MyGame.exe MyGame-Windows-${{ github.ref_name }}.exe
 
-      - name: Test
-        run: ./Executable/Windows/MyGame.exe
+      - name: Release
+        uses: softprop/action-gh-release@v2
+        with:
+          files: Executables\Windows\MyGame-Windows-${{ github.ref_name }}.exe
+        
 
   linux:
     runs-on: ubuntu-latest
@@ -79,14 +85,14 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: Linux
-        uses: actions/upload-artifact@v4
-        with:
-          name: MyGameLinux
-          path: Executables/Linux
+      - name: Rename
+        run: mv Executables/Linux/MyGame Executables/Linux/MyGame-Linux-${{ github.ref_name }}
 
-      - name: Test
-        run: chmod +x ./Executable/Linux/MyGame && ./Executable/Linux/MyGame
+      - name: Release
+        uses: softprop/action-gh-release@v2
+        with:
+          files: Executables/Linux/MyGame-Linux-${{ github.ref_name }}
+      
 
   macos:
     runs-on: macos-latest
@@ -107,11 +113,10 @@ jobs:
       - name: Build
         run: cmake --build build
 
-      - name: MacOS
-        uses: actions/upload-artifact@v4
+      - name: Rename
+        run: mv Executables/MacOS/MyGame Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
+
+      - name: Release
+        uses: softprop/action-gh-release@v2
         with:
-          name: MyGameMacOS
-          path: Executables/MacOS
-       
-      - name: Test
-        run: chmod +x ./Executable/MacOS/MyGame && ./Executable/MacOS/MyGame
+          files: Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
