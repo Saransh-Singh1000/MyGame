@@ -38,10 +38,12 @@ jobs:
           ./gradlew assembleRelease
 
       - name: Rename
-        run: mv Platform/Android/app/build/outputs/apk/release/app-release.apk MyGame-Android-${{ github.ref_name }}.apk
+        run: |
+          mv Platform/Android/app/build/outputs/apk/release/app-release.apk \
+          Platform/Android/app/build/outputs/apk/release/MyGame-Android-${{ github.ref_name }}.apk
 
       - name: Release
-        uses: softprop/action-gh-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           files: Platform/Android/app/build/outputs/apk/release/*.apk
 
@@ -54,21 +56,21 @@ jobs:
 
       - name: CMake
         run: >
-         cmake -S . -B build -G Ninja 
-         -DCMAKE_C_COMPILER=clang
-         -DCMAKE_CXX_COMPILER=clang++
+          cmake -S . -B build -G Ninja
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
 
       - name: Build
         run: cmake --build build
 
       - name: Rename
-      run: ren Executables\Windows\MyGame.exe MyGame-Windows-${{ github.ref_name }}.exe
+        run: |
+          ren Executables\Windows\MyGame.exe MyGame-Windows-${{ github.ref_name }}.exe
 
       - name: Release
-        uses: softprop/action-gh-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           files: Executables\Windows\MyGame-Windows-${{ github.ref_name }}.exe
-        
 
   linux:
     runs-on: ubuntu-latest
@@ -76,24 +78,28 @@ jobs:
     steps:
       - name: Repo
         uses: actions/checkout@v4
-      
+
       - name: Clang
         run: sudo apt update && sudo apt install -y ninja-build clang cmake
 
       - name: CMake
-        run: cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-      
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
+
       - name: Build
         run: cmake --build build
 
       - name: Rename
-        run: mv Executables/Linux/MyGame Executables/Linux/MyGame-Linux-${{ github.ref_name }}
+        run: |
+          mv Executables/Linux/MyGame \
+          Executables/Linux/MyGame-Linux-${{ github.ref_name }}
 
       - name: Release
-        uses: softprop/action-gh-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           files: Executables/Linux/MyGame-Linux-${{ github.ref_name }}
-      
 
   macos:
     runs-on: macos-latest
@@ -107,17 +113,19 @@ jobs:
 
       - name: CMake
         run: >
-         cmake -S . -B build -G Ninja
-         -DCMAKE_C_COMPILER=clang
-         -DCMAKE_CXX_COMPILER=clang++
+          cmake -S . -B build -G Ninja
+          -DCMAKE_C_COMPILER=clang
+          -DCMAKE_CXX_COMPILER=clang++
 
       - name: Build
         run: cmake --build build
 
       - name: Rename
-        run: mv Executables/MacOS/MyGame Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
+        run: |
+          mv Executables/MacOS/MyGame \
+          Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
 
       - name: Release
-        uses: softprop/action-gh-release@v2
+        uses: softprops/action-gh-release@v2
         with:
           files: Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
