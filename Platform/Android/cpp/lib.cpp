@@ -1,10 +1,10 @@
 #include <jni.h>
 
-#include "api.hpp"
+#include "Core.hpp"
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_org_main_MainActivity_nativeInit(JNIEnv* env, jobject thiz)
 {
-    Log("Hello World");
+    Log(LogLevel::Info, "Hello World");
 }
