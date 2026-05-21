@@ -3,6 +3,6 @@
 
 //This is the Loggin API.
 
-void Log(const char* Message);
+void Log(LogLevel Level, const char* Message);
 
 #endif

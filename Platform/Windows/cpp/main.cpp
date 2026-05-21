@@ -1,10 +1,10 @@
 #include <iostream>
 
-#include "api.hpp"
+#include "Core.hpp"
 
 //This is the main entry point.
 
 int main(){
-    Log("Hello, World!");
+    Log(LogLevel::Info, "Hello, World!" );
     return 0;
 }

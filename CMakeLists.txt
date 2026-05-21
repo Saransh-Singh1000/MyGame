@@ -5,10 +5,7 @@ project(MyGame)
 
 set(OUTPUT_ROOT "${CMAKE_SOURCE_DIR}/Executables")
 
-if (IOS)
-    set(OUT_DIR "${OUTPUT_ROOT}/iOS")
-    add_subdirectory(Platform/iOS)
-elseif (APPLE AND NOT IOS)
+if (APPLE AND NOT IOS)
     set(OUT_DIR "${OUTPUT_ROOT}/MacOS")
     add_subdirectory(Platform/MacOS)
 elseif (LINUX)
