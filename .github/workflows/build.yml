@@ -22,6 +22,9 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Decode
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > mygame.keystore
+
       - name: SDK
         uses: android-actions/setup-android@v3
 
@@ -36,10 +39,17 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease
+        
+        env:
+          STORE_FILE: mygame.keystore
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
 
       - name: Rename
         run: |
-          mv Platform/Android/app/build/outputs/apk/release/app-release-unsigned.apk \
+          mv Platform/Android/app/build/outputs/apk/release/app-release.apk \
           Platform/Android/app/build/outputs/apk/release/MyGame-Android-${{ github.ref_name }}.apk
 
       - name: Release

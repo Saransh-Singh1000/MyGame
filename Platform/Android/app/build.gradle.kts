@@ -1,5 +1,3 @@
-import java.io.File
-
 plugins {
     id("com.android.application") version "8.5.2"
 }
@@ -18,10 +16,21 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("STORE_FILE"))
+            storePassword = System.getenv("STORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
+
         debug {
             isMinifyEnabled = false
         }
