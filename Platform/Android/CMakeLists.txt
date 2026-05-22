@@ -17,11 +17,12 @@ get_filename_component(PROJECT_ROOT
 )
 
 set(CORE_SOURCE
-    ${PROJECT_ROOT}/Core/cpp/Log/Log.cpp
+    ${PROJECT_ROOT}/Core/c/Log/Log.c
+    ${PROJECT_ROOT}/Core/c/Time/Time.c
 )
 
 set(CORE_INCLUDE
-    ${PROJECT_ROOT}/Core/cpp/include
+    ${PROJECT_ROOT}/Core/c/include
 )
 
 add_library(MyGame SHARED

@@ -9,15 +9,16 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project(MyGame)
 
 set(CORE_SOURCE
-    ${CMAKE_SOURCE_DIR}/Core/cpp/Log/Log.cpp
+    ${CMAKE_SOURCE_DIR}/Core/c/Log/Log.c
+    ${CMAKE_SOURCE_DIR}/Core/c/Time/Time.c
 )
 
 set(CORE_INCLUDE
-    ${CMAKE_SOURCE_DIR}/Core/cpp/include
+    ${CMAKE_SOURCE_DIR}/Core/c/include
 )
 
 add_executable(MyGame
-    cpp/main.mm
+    cpp/main.m
     ${CORE_SOURCE}
 )
 

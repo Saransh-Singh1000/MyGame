@@ -3,6 +3,6 @@
 
 //This is the main API.
 
-#include "Log.hpp"
+#include "Log.h"
 
 #endif
