@@ -4,8 +4,7 @@
 
 void GetTime(char* Buffer, size_t Size){
     time_t Now = time(NULL);
-    struct tm* T;
-    localtime_r(&Now, T);
-
+    struct tm* T = localtime(&Now);
+    
     strftime(Buffer, Size, "%Y-%m-%d %H:%M:%S", T);
 }
