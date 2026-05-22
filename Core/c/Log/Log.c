@@ -16,7 +16,7 @@
 #define COLOR_INFO "\x1b[32m"
 #define COLOR_WARNING "\x1b[33m"
 #define COLOR_ERROR "\x1b[31m"
-#define COLOR_FAULT "\x1b[35m"
+#define COLOR_FATAL "\x1b[35m"
 
 
 void Log(LogLevel Level, const char* Message){
@@ -34,7 +34,7 @@ void Log(LogLevel Level, const char* Message){
         case Error:
             __android_log_print(ANDROID_LOG_ERROR, TAG, "%s", Message);
             break;
-        case Fault:
+        case Fatal:
             __android_log_print(ANDROID_LOG_FATAL, TAG, "%s", Message);
 
             fflush(stdout);
@@ -59,8 +59,8 @@ void Log(LogLevel Level, const char* Message){
         case Error:
             printf(COLOR_ERROR "[%s] [ERROR] %s\n" COLOR_RESET, TimeBuffer, Message);
             break;
-        case Fault:
-            printf(COLOR_FAULT "[%s] [FAULT] %s\n" COLOR_RESET, TimeBuffer, Message);
+        case Fatal:
+            printf(COLOR_FATAL "[%s] [FATAL] %s\n" COLOR_RESET, TimeBuffer, Message);
 
             fflush(stdout);
             fflush(stderr);

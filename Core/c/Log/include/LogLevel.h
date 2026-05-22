@@ -9,7 +9,7 @@ typedef enum {
     Info,
     Warning,
     Error,
-    Fault,
+    Fatal,
 } LogLevel;
 
 void Log(LogLevel level, const char* message);

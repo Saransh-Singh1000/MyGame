@@ -3,6 +3,6 @@
 
 #include <stddef.h>
 
-void getTime(char* Buffer, size_t Size);
+void GetTime(char* Buffer, size_t Size);
 
 #endif //TIME_H
