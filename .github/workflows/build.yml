@@ -23,7 +23,7 @@ jobs:
           java-version: 17
 
       - name: Decode
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > mygame.keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > Platform/Android/mygame.keystore
 
       - name: SDK
         uses: android-actions/setup-android@v3
@@ -41,7 +41,7 @@ jobs:
           ./gradlew assembleRelease
         
         env:
-          STORE_FILE: mygame.keystore
+          STORE_FILE: ${{ github.workspace }}/Platform/Android/mygame.keystore
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
