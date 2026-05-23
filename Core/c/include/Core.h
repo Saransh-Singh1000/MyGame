@@ -1,8 +1,9 @@
-#ifndef API_HPP
-#define API_HPP
+#ifndef CORE_H
+#define CORE_H
 
 //This is the main API.
 
 #include "Log.h"
+#include "Time.h"
 
-#endif
+#endif //CORE_H

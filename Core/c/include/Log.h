@@ -1,10 +1,10 @@
-#ifndef LOG_HPP
-#define LOG_HPP
+#ifndef LOG_H
+#define LOG_H
 
 #include "../Log/include/LogLevel.h"
 
-//This is the Loggin API.
+//This is the Logging API.
 
 void Log(LogLevel Level, const char* Message);
 
-#endif
+#endif //LOG_H
