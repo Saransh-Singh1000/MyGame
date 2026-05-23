@@ -1,4 +1,5 @@
-#pragma once
+#ifndef LOGLEVEL_H
+#define LOGLEVEL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,8 +13,8 @@ typedef enum {
     Fatal,
 } LogLevel;
 
-void Log(LogLevel level, const char* message);
-
 #ifdef __cplusplus
 }
+#endif
+
 #endif
