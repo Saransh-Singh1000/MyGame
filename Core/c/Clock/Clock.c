@@ -1,6 +1,7 @@
 #include "../include/Core.h"
 
 #include <time.h>
+#include <string.h>
 
 void GetTime(char* Buffer, size_t Size){
     time_t Now = time(NULL);
