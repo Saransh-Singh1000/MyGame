@@ -10,7 +10,7 @@ project(MyGame)
 
 set(CORE_SOURCE
     ${CMAKE_SOURCE_DIR}/Core/c/Log/Log.c
-    ${CMAKE_SOURCE_DIR}/Core/c/Time/Time.c
+    ${CMAKE_SOURCE_DIR}/Core/c/Clock/Clock.c
 )
 
 set(CORE_INCLUDE

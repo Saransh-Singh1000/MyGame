@@ -18,7 +18,7 @@ get_filename_component(PROJECT_ROOT
 
 set(CORE_SOURCE
     ${PROJECT_ROOT}/Core/c/Log/Log.c
-    ${PROJECT_ROOT}/Core/c/Time/Time.c
+    ${PROJECT_ROOT}/Core/c/Clock/Clock.c
 )
 
 set(CORE_INCLUDE
