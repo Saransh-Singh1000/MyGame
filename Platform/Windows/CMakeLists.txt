@@ -18,7 +18,7 @@ set(CORE_INCLUDE
 )
 
 add_executable(MyGame
-    $c/main.c
+    c/main.c
     ${CORE_SOURCE}
 )
 

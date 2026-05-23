@@ -26,7 +26,7 @@ set(CORE_INCLUDE
 )
 
 add_library(MyGame SHARED
-    cp/lib.c
+    c/lib.c
     ${CORE_SOURCE}
 )
 
