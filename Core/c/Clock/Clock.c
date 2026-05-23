@@ -7,7 +7,7 @@ void GetTime(char* Buffer, size_t Size){
     time_t Now = time(NULL);
     
     struct tm T;
-    memeset(&T, 0, sizeof(struct tm));
+    memset(&T, 0, sizeof(struct tm));
 
 #if defined(_WIN32)
     localtime_s(&T, &Now);
