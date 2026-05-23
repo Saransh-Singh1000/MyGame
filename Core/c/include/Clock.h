@@ -1,5 +1,5 @@
-#ifndef TIME_H
-#define TIME_H
+#ifndef CLOCK_H
+#define CLOCK_H
 
 #include <stddef.h>
 
@@ -7,4 +7,4 @@
 
 void GetTime(char* Buffer, size_t Size);
 
-#endif //TIME_H
+#endif //CLOCK_h
