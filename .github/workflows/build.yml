@@ -111,31 +111,4 @@ jobs:
         with:
           files: Executables/Linux/MyGame-Linux-${{ github.ref_name }}
 
-  macos:
-    runs-on: macos-latest
-
-    steps:
-      - name: Repo
-        uses: actions/checkout@v4
-
-      - name: Ninja
-        run: brew install ninja
-
-      - name: CMake
-        run: >
-          cmake -S . -B build -G Ninja
-          -DCMAKE_C_COMPILER=clang
-          -DCMAKE_CXX_COMPILER=clang++
-
-      - name: Build
-        run: cmake --build build
-
-      - name: Rename
-        run: |
-          mv Executables/MacOS/MyGame \
-          Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: Executables/MacOS/MyGame-MacOS-${{ github.ref_name }}
+  
