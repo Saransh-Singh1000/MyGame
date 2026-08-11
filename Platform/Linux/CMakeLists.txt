@@ -8,22 +8,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 project(MyGame)
 
-set(CORE_SOURCE
-    ${CMAKE_SOURCE_DIR}/Core/c/Log/Log.c
-    ${CMAKE_SOURCE_DIR}/Core/c/Clock/Clock.c
-)
-
-set(CORE_INCLUDE
-    ${CMAKE_SOURCE_DIR}/Core/c/include
-)
-
 add_executable(MyGame
     c/main.c
-    ${CORE_SOURCE}
 )
 
 target_include_directories(MyGame PRIVATE
-    ${CORE_INCLUDE}
 )
 
 set_target_properties(MyGame PROPERTIES

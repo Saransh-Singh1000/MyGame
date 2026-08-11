@@ -16,29 +16,13 @@ get_filename_component(PROJECT_ROOT
     ABSOLUTE
 )
 
-set(CORE_SOURCE
-    ${PROJECT_ROOT}/Core/c/Log/Log.c
-    ${PROJECT_ROOT}/Core/c/Clock/Clock.c
-)
-
-set(CORE_INCLUDE
-    ${PROJECT_ROOT}/Core/c/include
-)
-
 add_library(MyGame SHARED
     c/lib.c
-    ${CORE_SOURCE}
 )
 
 target_include_directories(MyGame PRIVATE
-    ${CORE_INCLUDE}
-)
-
-find_library(
-    log-lib
-    log
 )
 
 target_link_libraries(MyGame
-    ${log-lib}
+   
 )
