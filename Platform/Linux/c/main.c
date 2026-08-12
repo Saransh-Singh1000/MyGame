@@ -1,8 +1,6 @@
-#include "stdio.h"
+#include "../../Common/init.h"
 
-//This is the main entry point.
-
-int main(){
-    printf("Hello, World!\n");
-    return 0;
+int main(void)
+{
+    return init_window();
 }
