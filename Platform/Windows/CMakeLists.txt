@@ -16,6 +16,8 @@ FetchContent_Declare(
     GIT_TAG        main
 )
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL3)
 
 FetchContent_Declare(
@@ -37,7 +39,7 @@ target_include_directories(MyGame PRIVATE
 )
 
 target_link_libraries(MyGame PRIVATE
-    SDL3::SDL3
+    SDL3-static
     enet
     Vulkan::Vulkan
     ws2_32
