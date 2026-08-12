@@ -1,7 +1,15 @@
-cmake_minimum_required(VERSION 3.20)
-cmake_policy(VERSION 3.20)
+cmake_minimum_required(VERSION 3.14)
+cmake_policy(SET CMP0091 NEW)
 
-project(MyGame)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+project(MyGame LANGUAGES C CXX)
 
 set(OUTPUT_ROOT "${CMAKE_SOURCE_DIR}/Executables")
 
