@@ -122,7 +122,9 @@ jobs:
       - name: Install Toolchain & Dependencies
         run: |
           sudo apt update
-          sudo apt install -y ninja-build clang cmake libwayland-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+          sudo apt install -y ninja-build clang cmake \
+            libwayland-dev libx11-dev libxext-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev
 
       - name: Setup & Cache Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1

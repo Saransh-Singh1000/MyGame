@@ -16,7 +16,6 @@ FetchContent_Declare(
     GIT_TAG        main
 )
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
-set(SDL_X11_XSCRNSAVER OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SDL3)
 
 FetchContent_Declare(
