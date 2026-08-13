@@ -1,4 +1,4 @@
-#include "init/init.hpp"
+#include "init.hpp"
 #include <SDL2/SDL.h>
 #include <iostream>
 
