@@ -48,6 +48,7 @@ find_package(Vulkan REQUIRED)
 
 add_executable(MyGame
     src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Common/src/init/init.cpp
 )
 
 target_include_directories(MyGame PRIVATE

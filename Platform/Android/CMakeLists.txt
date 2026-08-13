@@ -48,6 +48,7 @@ find_package(Vulkan REQUIRED)
 
 add_library(MyGame SHARED
     src/lib.cpp
+
 )
 
 target_include_directories(MyGame PRIVATE
