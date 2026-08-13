@@ -47,11 +47,11 @@ FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
 find_package(Vulkan REQUIRED)
 
 add_library(MyGame SHARED
-    c/lib.c
+    src/lib.cpp
 )
 
 target_include_directories(MyGame PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Common
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Common/include/init
     ${Vulkan_INCLUDE_DIRS}
     ${directxmath_SOURCE_DIR}/Inc
 )
