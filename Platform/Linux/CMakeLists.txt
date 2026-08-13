@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.14)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -21,14 +23,29 @@ FetchContent_Declare(
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(SDL3)
 
 FetchContent_Declare(
     enet
     GIT_REPOSITORY https://github.com/lsalzman/enet.git
     GIT_TAG        master
 )
-FetchContent_MakeAvailable(enet)
+
+FetchContent_Declare(
+    directxmath
+    GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
+    GIT_TAG        main
+)
+
+set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    jolt
+    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+    GIT_TAG        v5.2.0
+    SOURCE_SUBDIR  Build
+)
+
+FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
 
 find_package(Vulkan REQUIRED)
 
@@ -45,6 +62,8 @@ target_link_libraries(MyGame PRIVATE
     SDL3-static
     enet
     Vulkan::Vulkan
+    Microsoft::DirectXMath
+    Jolt
 )
 
 if(DEFINED OUT_DIR)
