@@ -1,6 +1,5 @@
-#include "../../Common/init.h"
-
-int main(void)
-{
-    return init_window();
+#include <stdio.h>
+int main(){
+    printf("Hello World\n");
+    return 0;
 }

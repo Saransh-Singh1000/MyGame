@@ -46,11 +46,6 @@ FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
 
 find_package(Vulkan REQUIRED)
 
-get_filename_component(PROJECT_ROOT
-    ${CMAKE_SOURCE_DIR}/../..
-    ABSOLUTE
-)
-
 add_library(MyGame SHARED
     c/lib.c
 )
@@ -58,12 +53,14 @@ add_library(MyGame SHARED
 target_include_directories(MyGame PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Common
     ${Vulkan_INCLUDE_DIRS}
+    ${directxmath_SOURCE_DIR}/Inc
 )
 
 target_link_libraries(MyGame PRIVATE
     SDL3-static
     enet
     Vulkan::Vulkan
-    Microsoft::DirectXMath
     Jolt
+    log
+    android
 )

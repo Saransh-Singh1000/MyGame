@@ -56,13 +56,13 @@ add_executable(MyGame
 target_include_directories(MyGame PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../Common
     ${Vulkan_INCLUDE_DIRS}
+    ${directxmath_SOURCE_DIR}/Inc
 )
 
 target_link_libraries(MyGame PRIVATE
     SDL3-static
     enet
     Vulkan::Vulkan
-    Microsoft::DirectXMath
     Jolt
 )
 
