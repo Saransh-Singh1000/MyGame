@@ -56,7 +56,7 @@ add_executable(MyGame
 )
 
 target_link_libraries(MyGame PRIVATE
-    EngineCommon
+    MyGameCommon
 )
 
 if(DEFINED OUT_DIR)

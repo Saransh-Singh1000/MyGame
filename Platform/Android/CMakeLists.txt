@@ -55,7 +55,7 @@ add_library(MyGame SHARED
 )
 
 target_link_libraries(MyGame PRIVATE
-    EngineCommon   
+    MyGameCommon
     log
     android
 )

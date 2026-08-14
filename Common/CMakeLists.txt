@@ -12,7 +12,7 @@ add_library(MyGameCommon STATIC
 
 target_compile_features(MyGameCommon PUBLIC cxx_std_20)
 
-target_include_directories(EngineCommon
+target_include_directories(MyGameCommon
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/init"
@@ -21,7 +21,7 @@ target_include_directories(EngineCommon
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
 
-target_link_libraries(EngineCommon
+target_link_libraries(MyGameCommon
     PUBLIC
         SDL3::SDL3-static
         enet

@@ -58,7 +58,7 @@ add_executable(MyGame
 )
 
 target_link_libraries(MyGame PRIVATE
-    EngineCommon
+    MyGameCommon
     ws2_32
     winmm
 )
