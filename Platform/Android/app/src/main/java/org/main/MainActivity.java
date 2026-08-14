@@ -1,21 +1,13 @@
 package org.main;
+import org.libsdl.app.SDLActivity;
 
-import android.app.Activity;
-import android.os.Bundle;
-
-public class MainActivity extends Activity {
-
-    static {
-        System.loadLibrary("MyGame");
-    }
-
-    public native void nativeInit();
+public class MainActivity extends SDLActivity {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        nativeInit();
-
+    protected String[] getLibraries() {
+        return new String[] {
+            "SDL3", 
+            "MyGame"  
+        };
     }
 }
