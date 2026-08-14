@@ -48,6 +48,7 @@ find_package(Vulkan REQUIRED)
 
 add_library(MyGame SHARED
     src/lib.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../Common/src/init/init.cpp
 
 )
 
