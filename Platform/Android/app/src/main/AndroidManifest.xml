@@ -6,13 +6,12 @@
     <application
         android:label="MyGame"
         android:hasCode="true"
-        android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
 
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|hideKeyboard|keyboard|keyboardHidden|screenSize|screenLayout|smallerScreenSize"
+            android:configChanges="orientation|hideKeyboard|keyboard|keyboardHidden|screenSize|screenLayout|smallestScreenSize"
             android:exported="true">
 
             <intent-filter>
