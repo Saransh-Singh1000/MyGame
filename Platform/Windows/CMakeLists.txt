@@ -48,6 +48,7 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
+target_compile_options(Jolt PRIVATE -Wno-switch-default)
 
 find_package(Vulkan REQUIRED)
 
