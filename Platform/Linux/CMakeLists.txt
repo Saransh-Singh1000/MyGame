@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -11,18 +11,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_definitions(-D_POSIX_C_SOURCE=200809L)
 add_definitions(-D_DEFAULT_SOURCE)
 
-project(MyGame LANGUAGES C CXX)
+project(MyGameLinux LANGUAGES C CXX)
 
 include(FetchContent)
 
-FetchContent_Declare(
-    SDL3
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-    GIT_TAG        main
-)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG        release-3.2.0
+)
 
 FetchContent_Declare(
     enet
@@ -49,22 +49,14 @@ FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
 
 find_package(Vulkan REQUIRED)
 
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../Common" "${CMAKE_CURRENT_BINARY_DIR}/CommonBuild")
+
 add_executable(MyGame
     src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Common/src/init/init.cpp
-)
-
-target_include_directories(MyGame PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../Common/include/init
-    ${Vulkan_INCLUDE_DIRS}
-    ${directxmath_SOURCE_DIR}/Inc
 )
 
 target_link_libraries(MyGame PRIVATE
-    SDL3-static
-    enet
-    Vulkan::Vulkan
-    Jolt
+    EngineCommon
 )
 
 if(DEFINED OUT_DIR)
