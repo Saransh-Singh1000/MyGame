@@ -24,6 +24,7 @@ FetchContent_Declare(
     GIT_TAG        release-3.2.0
 )
 
+# --- ENet Setup ---
 FetchContent_Declare(
     enet
     GIT_REPOSITORY https://github.com/lsalzman/enet.git
@@ -38,6 +39,7 @@ FetchContent_Declare(
 
 set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
+set(USE_NEON ON CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     jolt
@@ -66,7 +68,6 @@ target_include_directories(MyGameCommon
     PUBLIC
         "${COMMON_DIR}/include"
         "${COMMON_DIR}/include/init"
-        ${directxmath_SOURCE_DIR}/Inc
     PRIVATE
         "${COMMON_DIR}/src"
 )
@@ -74,6 +75,7 @@ target_include_directories(MyGameCommon
 target_link_libraries(MyGameCommon
     PUBLIC
         SDL3::SDL3
+        DirectXMath
         enet
         Vulkan::Vulkan
         Jolt
@@ -84,6 +86,9 @@ add_library(MyGame SHARED
 )
 
 target_link_libraries(MyGame PRIVATE
+    -Wl,--whole-archive
+    SDL3::SDL3
+    -Wl,--no-whole-archive
     MyGameCommon
     log
     android
