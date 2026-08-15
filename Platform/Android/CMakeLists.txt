@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Language and C/C++ Standards Setup
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
@@ -14,6 +15,11 @@ project(MyGameAndroid LANGUAGES C CXX)
 
 include(FetchContent)
 
+# ------------------------------------------------------------------------------
+# 1. Dependency Configurations
+# ------------------------------------------------------------------------------
+
+# --- SDL3 Setup ---
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED ON CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
@@ -31,15 +37,21 @@ FetchContent_Declare(
     GIT_TAG        master
 )
 
+# --- DirectXMath Setup ---
 FetchContent_Declare(
     directxmath
     GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
     GIT_TAG        main
 )
 
+# --- Jolt Physics Setup (Optimized for Android NEON SIMD) ---
 set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
-set(USE_NEON ON CACHE BOOL "" FORCE)
+set(USE_SSE4_1 OFF CACHE BOOL "" FORCE)
+set(USE_SSE4_2 OFF CACHE BOOL "" FORCE)
+set(USE_AVX OFF CACHE BOOL "" FORCE)
+set(USE_AVX2 OFF CACHE BOOL "" FORCE)
+set(USE_NEON ON CACHE BOOL "" FORCE) # Required for ARM64 Android hardware
 
 FetchContent_Declare(
     jolt
@@ -48,10 +60,15 @@ FetchContent_Declare(
     SOURCE_SUBDIR  Build
 )
 
+# Download and populate dependencies
 FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
 
+# System dependencies
 find_package(Vulkan REQUIRED)
 
+# ------------------------------------------------------------------------------
+# 2. Engine Common Library Target (Static)
+# ------------------------------------------------------------------------------
 set(COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../Common")
 
 file(GLOB_RECURSE COMMON_SOURCES CONFIGURE_DEPENDS "${COMMON_DIR}/src/*.cpp" "${COMMON_DIR}/src/*.c")
@@ -72,19 +89,24 @@ target_include_directories(MyGameCommon
         "${COMMON_DIR}/src"
 )
 
+# Link general engine dependencies to static common target
 target_link_libraries(MyGameCommon
     PUBLIC
-        SDL3::SDL3
         DirectXMath
         enet
         Vulkan::Vulkan
         Jolt
 )
 
+# ------------------------------------------------------------------------------
+# 3. Main Android Native Shared Library (.so Output)
+# ------------------------------------------------------------------------------
 add_library(MyGame SHARED
     src/lib.cpp
 )
 
+# Crucial Linkage Step: 
+# Wrap SDL3 inside -Wl,--whole-archive to prevent NDK from stripping JNI symbols
 target_link_libraries(MyGame PRIVATE
     -Wl,--whole-archive
     SDL3::SDL3
