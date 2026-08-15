@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
 
 project(MyGameAndroid LANGUAGES C CXX)
 
@@ -50,18 +50,40 @@ FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
 
 find_package(Vulkan REQUIRED)
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../Common" "${CMAKE_CURRENT_BINARY_DIR}/CommonBuild")
+set(COMMON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../Common")
+
+file(GLOB_RECURSE COMMON_SOURCES CONFIGURE_DEPENDS "${COMMON_DIR}/src/*.cpp" "${COMMON_DIR}/src/*.c")
+file(GLOB_RECURSE COMMON_HEADERS CONFIGURE_DEPENDS "${COMMON_DIR}/include/*.hpp" "${COMMON_DIR}/include/*.h")
+
+add_library(MyGameCommon STATIC
+    ${COMMON_SOURCES}
+    ${COMMON_HEADERS}
+)
+
+target_compile_features(MyGameCommon PUBLIC cxx_std_20)
+
+target_include_directories(MyGameCommon
+    PUBLIC
+        "${COMMON_DIR}/include"
+        "${COMMON_DIR}/include/init"
+        ${directxmath_SOURCE_DIR}/Inc
+    PRIVATE
+        "${COMMON_DIR}/src"
+)
+
+target_link_libraries(MyGameCommon
+    PUBLIC
+        SDL3::SDL3
+        enet
+        Vulkan::Vulkan
+        Jolt
+)
 
 add_library(MyGame SHARED
     src/lib.cpp
 )
 
 target_link_libraries(MyGame PRIVATE
-    SDL3::SDL3
-    Jolt
-    DirectXMath
-    enet
-    Vulkan::Vulkan
     MyGameCommon
     log
     android
