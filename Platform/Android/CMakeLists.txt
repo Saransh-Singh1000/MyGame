@@ -89,9 +89,10 @@ target_include_directories(MyGameCommon
         "${COMMON_DIR}/src"
 )
 
-# Link general engine dependencies to static common target
+# Link general engine dependencies to static common target (SDL3 included for header propagation)
 target_link_libraries(MyGameCommon
     PUBLIC
+        SDL3::SDL3
         DirectXMath
         enet
         Vulkan::Vulkan
