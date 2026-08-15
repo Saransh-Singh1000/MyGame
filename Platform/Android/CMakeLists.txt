@@ -8,15 +8,16 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
 
 project(MyGameAndroid LANGUAGES C CXX)
 
 include(FetchContent)
 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
-set(SDL_SHARED OFF CACHE BOOL "" FORCE)
-set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_SHARED ON CACHE BOOL "" FORCE)
+set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
     SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
@@ -37,6 +38,7 @@ FetchContent_Declare(
 
 set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
     jolt
     GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
@@ -55,6 +57,11 @@ add_library(MyGame SHARED
 )
 
 target_link_libraries(MyGame PRIVATE
+    SDL3::SDL3
+    Jolt
+    DirectXMath
+    enet
+    Vulkan::Vulkan
     MyGameCommon
     log
     android
