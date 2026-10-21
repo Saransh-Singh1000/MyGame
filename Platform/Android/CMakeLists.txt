@@ -23,6 +23,17 @@ include(FetchContent)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED ON CACHE BOOL "" FORCE)
 set(SDL_STATIC OFF CACHE BOOL "" FORCE)
+set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
+set(SDL_DIALOG OFF CACHE BOOL "" FORCE)
+set(SDL_GPU OFF CACHE BOOL "" FORCE)
+set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
+set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
+set(SDL_POWER OFF CACHE BOOL "" FORCE)
+set(SDL_RENDER OFF CACHE BOOL "" FORCE)
+set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
+set(SDL_VULKAN ON CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     SDL3
@@ -30,38 +41,8 @@ FetchContent_Declare(
     GIT_TAG        release-3.2.0
 )
 
-# --- ENet Setup ---
-FetchContent_Declare(
-    enet
-    GIT_REPOSITORY https://github.com/lsalzman/enet.git
-    GIT_TAG        master
-)
-
-# --- DirectXMath Setup ---
-FetchContent_Declare(
-    directxmath
-    GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-    GIT_TAG        main
-)
-
-# --- Jolt Physics Setup (Optimized for Android NEON SIMD) ---
-set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
-set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
-set(USE_SSE4_1 OFF CACHE BOOL "" FORCE)
-set(USE_SSE4_2 OFF CACHE BOOL "" FORCE)
-set(USE_AVX OFF CACHE BOOL "" FORCE)
-set(USE_AVX2 OFF CACHE BOOL "" FORCE)
-set(USE_NEON ON CACHE BOOL "" FORCE) # Required for ARM64 Android hardware
-
-FetchContent_Declare(
-    jolt
-    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
-    GIT_TAG        v5.2.0
-    SOURCE_SUBDIR  Build
-)
-
 # Download and populate dependencies
-FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
+FetchContent_MakeAvailable(SDL3)
 
 # System dependencies
 find_package(Vulkan REQUIRED)
@@ -85,22 +66,18 @@ target_include_directories(MyGameCommon
     PUBLIC
         "${COMMON_DIR}/include"
         "${COMMON_DIR}/include/init"
-        "${directxmath_SOURCE_DIR}/Inc"
     PRIVATE
         "${COMMON_DIR}/src"
 )
 
 include("${COMMON_DIR}/cmake/VulkanShaders.cmake")
-mygame_compile_vulkan_shaders(MyGameCommon)
+mygame_embed_vulkan_shaders(MyGameCommon)
 
 # Link general engine dependencies to static common target
 target_link_libraries(MyGameCommon
     PUBLIC
         SDL3::SDL3-shared
-        DirectXMath
-        enet
         Vulkan::Vulkan
-        Jolt
 )
 
 # ------------------------------------------------------------------------------

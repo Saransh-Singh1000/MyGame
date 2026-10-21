@@ -40,11 +40,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Install shader compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y glslang-tools
-
       - name: Cache Gradle Caches & CMake FetchContent
         uses: actions/cache@v4
         with:
@@ -96,14 +91,14 @@ jobs:
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.268.0
-          vulkan-components: Vulkan-Headers, Vulkan-Loader, SPIRV-Headers, SPIRV-Tools, Glslang
+          vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
-      - name: Cache CMake Dependencies (SDL3, ENet)
+      - name: Cache CMake Dependencies (SDL3)
         uses: actions/cache@v4
         with:
           path: build/_deps
-          key: ${{ runner.os }}-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
+          key: ${{ runner.os }}-cmake-deps-${{ hashFiles('CMakeLists.txt', 'Platform/Windows/CMakeLists.txt', 'Common/CMakeLists.txt') }}
           restore-keys: |
             ${{ runner.os }}-cmake-deps-
 
@@ -136,21 +131,15 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y ninja-build clang cmake \
+            libvulkan-dev \
             libwayland-dev libx11-dev libxext-dev libxrandr-dev \
-            libxinerama-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev glslc
+            libxinerama-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev
 
-      - name: Setup & Cache Vulkan SDK
-        uses: humbletim/setup-vulkan-sdk@v1.2.1
-        with:
-          vulkan-query-version: 1.3.268.0
-          vulkan-components: Vulkan-Headers, Vulkan-Loader
-          vulkan-use-cache: true
-
-      - name: Cache CMake Dependencies (SDL3, ENet)
+      - name: Cache CMake Dependencies (SDL3)
         uses: actions/cache@v4
         with:
           path: build/_deps
-          key: ${{ runner.os }}-cmake-deps-${{ hashFiles('CMakeLists.txt') }}
+          key: ${{ runner.os }}-cmake-deps-${{ hashFiles('CMakeLists.txt', 'Platform/Linux/CMakeLists.txt', 'Common/CMakeLists.txt') }}
           restore-keys: |
             ${{ runner.os }}-cmake-deps-
 

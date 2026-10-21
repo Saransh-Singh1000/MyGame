@@ -22,35 +22,24 @@ include(FetchContent)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+set(SDL_CAMERA OFF CACHE BOOL "" FORCE)
+set(SDL_DIALOG OFF CACHE BOOL "" FORCE)
+set(SDL_GPU OFF CACHE BOOL "" FORCE)
+set(SDL_HAPTIC OFF CACHE BOOL "" FORCE)
+set(SDL_HIDAPI OFF CACHE BOOL "" FORCE)
+set(SDL_JOYSTICK OFF CACHE BOOL "" FORCE)
+set(SDL_POWER OFF CACHE BOOL "" FORCE)
+set(SDL_RENDER OFF CACHE BOOL "" FORCE)
+set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
+set(SDL_VULKAN ON CACHE BOOL "" FORCE)
 FetchContent_Declare(
     SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
     GIT_TAG        release-3.2.0
 )
 
-FetchContent_Declare(
-    enet
-    GIT_REPOSITORY https://github.com/lsalzman/enet.git
-    GIT_TAG        master
-)
-
-FetchContent_Declare(
-    directxmath
-    GIT_REPOSITORY https://github.com/microsoft/DirectXMath.git
-    GIT_TAG        main
-)
-
-set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
-set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    jolt
-    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
-    GIT_TAG        v5.2.0
-    SOURCE_SUBDIR  Build
-)
-
-FetchContent_MakeAvailable(SDL3 enet directxmath jolt)
-target_compile_options(Jolt PRIVATE -Wno-switch-default)
+FetchContent_MakeAvailable(SDL3)
 
 find_package(Vulkan REQUIRED)
 

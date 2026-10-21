@@ -16,7 +16,6 @@ target_include_directories(MyGameCommon
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/include/init"
-        ${directxmath_SOURCE_DIR}/Inc
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
@@ -24,10 +23,8 @@ target_include_directories(MyGameCommon
 target_link_libraries(MyGameCommon
     PUBLIC
         SDL3::SDL3-static
-        enet
         Vulkan::Vulkan
-        Jolt
 )
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VulkanShaders.cmake")
-mygame_compile_vulkan_shaders(MyGameCommon)
+mygame_embed_vulkan_shaders(MyGameCommon)
