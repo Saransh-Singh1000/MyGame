@@ -11,22 +11,34 @@ permissions:
 jobs:
   android:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Repo
         uses: actions/checkout@v4
+
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/cmdline-tools/16.0
+            /usr/local/lib/android/sdk/platform-tools
+            /usr/local/lib/android/sdk/platforms/android-34
+            /usr/local/lib/android/sdk/build-tools/34.0.0
+            /usr/local/lib/android/sdk/ndk/26.3.11579264
+            /usr/local/lib/android/sdk/cmake/3.22.1
+            /usr/local/lib/android/sdk/licenses
+          key: ${{ runner.os }}-android-sdk-cmdline-12266719-api-34-build-tools-34.0.0-ndk-26.3.11579264-cmake-3.22.1
+          restore-keys: |
+            ${{ runner.os }}-android-sdk-
 
       - name: Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
-      - name: Cache Android NDK
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/lib/android/sdk/ndk/26.3.11579264
-          key: ${{ runner.os }}-android-ndk-26.3.11579264
 
       - name: Cache Gradle Caches & CMake FetchContent
         uses: actions/cache@v4
@@ -44,12 +56,8 @@ jobs:
 
       - name: SDK
         uses: android-actions/setup-android@v3
-
-      - name: Licences
-        run: yes | sdkmanager --licenses
-
-      - name: Install NDK
-        run: sdkmanager "ndk;26.3.11579264"
+        with:
+          packages: platform-tools platforms;android-34 build-tools;34.0.0 ndk;26.3.11579264 cmake;3.22.1
 
       - name: Build
         working-directory: Platform/Android
