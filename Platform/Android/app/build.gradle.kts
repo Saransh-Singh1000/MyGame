@@ -14,6 +14,12 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        externalNativeBuild {
+            cmake {
+                targets += listOf("MyGame", "SDL3-shared")
+            }
+        }
     }
 
     signingConfigs {
@@ -44,7 +50,6 @@ android {
     externalNativeBuild {
         cmake {
             path = file("../CMakeLists.txt")
-            targets += listOf("MyGame", "SDL3-shared")
         }
     }
 
