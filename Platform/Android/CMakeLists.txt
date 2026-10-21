@@ -89,10 +89,10 @@ target_include_directories(MyGameCommon
         "${COMMON_DIR}/src"
 )
 
-# Link general engine dependencies to static common target (SDL3 included for header propagation)
+# Link general engine dependencies to static common target
 target_link_libraries(MyGameCommon
     PUBLIC
-        SDL3::SDL3
+        SDL3::SDL3-shared
         DirectXMath
         enet
         Vulkan::Vulkan
@@ -106,12 +106,8 @@ add_library(MyGame SHARED
     src/lib.cpp
 )
 
-# Crucial Linkage Step: 
-# Wrap SDL3 inside -Wl,--whole-archive to prevent NDK from stripping JNI symbols
 target_link_libraries(MyGame PRIVATE
-    -Wl,--whole-archive
-    SDL3::SDL3
-    -Wl,--no-whole-archive
+    SDL3::SDL3-shared
     MyGameCommon
     log
     android

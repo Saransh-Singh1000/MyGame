@@ -44,6 +44,7 @@ android {
     externalNativeBuild {
         cmake {
             path = file("../CMakeLists.txt")
+            targets += listOf("MyGame", "SDL3-shared")
         }
     }
 
