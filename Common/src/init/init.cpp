@@ -63,6 +63,12 @@ constexpr std::array<std::array<int, 4>, 6> faceVertices{{
     {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
 }};
 
+constexpr std::array<Point3D, 6> faceNormals{{
+    {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 1.0f},
+    {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+    {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}
+}};
+
 struct SceneBuffers {
     std::vector<RenderFace> faces;
     std::vector<VulkanVertex> vertices;
@@ -263,6 +269,8 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
             const float angleX = elapsed * 0.35f + phase;
             const float angleY = elapsed * 0.55f + phase;
             const Rotation rotation = makeRotation(angleX, angleY, cosZ, sinZ);
+            const Point3D cameraRelative = subtract(camera.position, cubeCenter);
+            const bool cullBackFaces = dot(cameraRelative, cameraRelative) > 1.0f;
 
             std::array<Point2D, 8> projectedVertices{};
             std::array<float, 8> depths{};
@@ -279,6 +287,10 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
             }
 
             for (std::size_t i = 0; i < faceVertices.size(); ++i) {
+                if (cullBackFaces &&
+                    dot(rotatePoint(faceNormals[i], rotation), cameraRelative) <= 0.0f) {
+                    continue;
+                }
                 RenderFace face{};
                 face.color = faceColors[i];
                 bool visible = true;

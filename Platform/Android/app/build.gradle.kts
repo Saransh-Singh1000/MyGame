@@ -15,11 +15,6 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        externalNativeBuild {
-            cmake {
-                targets += listOf("MyGame", "SDL3-shared")
-            }
-        }
     }
 
     signingConfigs {
