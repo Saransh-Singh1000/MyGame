@@ -33,6 +33,18 @@ struct Camera {
     float pitch = -0.25f;
 };
 
+struct CameraBasis {
+    Point3D forward;
+    Point3D right;
+    Point3D up;
+};
+
+struct Rotation {
+    float xx, xy, xz;
+    float yx, yy, yz;
+    float zx, zy, zz;
+};
+
 constexpr std::array<Point3D, 8> cubeVertices{{
     {-0.55f, -0.55f, -0.55f},
     { 0.55f, -0.55f, -0.55f},
@@ -50,30 +62,65 @@ constexpr std::array<std::array<int, 4>, 6> faceVertices{{
     {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
 }};
 
+struct SceneBuffers {
+    std::vector<RenderFace> faces;
+    std::vector<SDL_Vertex> vertices;
+    std::vector<int> indices;
+
+    SceneBuffers() {
+        faces.reserve(8 * 8 * faceVertices.size());
+        vertices.reserve(8 * 8 * faceVertices.size() * 5 * 4);
+        indices.reserve(8 * 8 * faceVertices.size() * 5 * 6);
+    }
+};
+
 constexpr std::array<SDL_FColor, 6> faceColors{{
     {0.92f, 0.33f, 0.33f, 1.0f}, {0.29f, 0.75f, 0.92f, 1.0f},
     {0.37f, 0.80f, 0.49f, 1.0f}, {0.96f, 0.75f, 0.27f, 1.0f},
     {0.65f, 0.45f, 0.92f, 1.0f}, {0.94f, 0.47f, 0.73f, 1.0f}
 }};
 
-Point3D rotatePoint(Point3D point, float angleX, float angleY, float angleZ) {
+Rotation makeRotation(float angleX, float angleY, float cosZ, float sinZ) {
     const float cosX = std::cos(angleX);
     const float sinX = std::sin(angleX);
     const float cosY = std::cos(angleY);
     const float sinY = std::sin(angleY);
-    const float cosZ = std::cos(angleZ);
-    const float sinZ = std::sin(angleZ);
-
-    const float yAfterX = point.y * cosX - point.z * sinX;
-    const float zAfterX = point.y * sinX + point.z * cosX;
-    const float xAfterY = point.x * cosY + zAfterX * sinY;
-    const float zAfterY = -point.x * sinY + zAfterX * cosY;
 
     return {
-        xAfterY * cosZ - yAfterX * sinZ,
-        xAfterY * sinZ + yAfterX * cosZ,
-        zAfterY
+        cosY * cosZ,
+        sinX * sinY * cosZ - cosX * sinZ,
+        cosX * sinY * cosZ + sinX * sinZ,
+        cosY * sinZ,
+        sinX * sinY * sinZ + cosX * cosZ,
+        cosX * sinY * sinZ - sinX * cosZ,
+        -sinY,
+        sinX * cosY,
+        cosX * cosY
     };
+}
+
+Point3D rotatePoint(Point3D point, const Rotation& rotation) {
+    return {
+        point.x * rotation.xx + point.y * rotation.xy + point.z * rotation.xz,
+        point.x * rotation.yx + point.y * rotation.yy + point.z * rotation.yz,
+        point.x * rotation.zx + point.y * rotation.zy + point.z * rotation.zz
+    };
+}
+
+CameraBasis makeCameraBasis(const Camera& camera) {
+    const float sinYaw = std::sin(camera.yaw);
+    const float cosYaw = std::cos(camera.yaw);
+    const float sinPitch = std::sin(camera.pitch);
+    const float cosPitch = std::cos(camera.pitch);
+    CameraBasis basis{};
+    basis.forward = {sinYaw * cosPitch, sinPitch, cosYaw * cosPitch};
+    basis.right = {cosYaw, 0.0f, -sinYaw};
+    basis.up = {
+        basis.forward.y * basis.right.z - basis.forward.z * basis.right.y,
+        basis.forward.z * basis.right.x - basis.forward.x * basis.right.z,
+        basis.forward.x * basis.right.y - basis.forward.y * basis.right.x
+    };
+    return basis;
 }
 
 Point3D subtract(Point3D left, Point3D right) {
@@ -92,27 +139,52 @@ Point3D scale(Point3D point, float amount) {
     return {point.x * amount, point.y * amount, point.z * amount};
 }
 
-bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& camera,
-                 float elapsed) {
+void appendQuad(SceneBuffers& buffers, const std::array<Point2D, 4>& points, SDL_FColor color) {
     constexpr std::array<int, 6> indices{{0, 1, 2, 0, 2, 3}};
+    const int firstVertex = static_cast<int>(buffers.vertices.size());
+    for (const Point2D point : points) {
+        SDL_Vertex vertex{};
+        vertex.position = {point.x, point.y};
+        vertex.color = color;
+        buffers.vertices.push_back(vertex);
+    }
+    for (const int index : indices) {
+        buffers.indices.push_back(firstVertex + index);
+    }
+}
+
+std::array<Point2D, 4> makeLineQuad(Point2D from, Point2D to) {
+    constexpr float halfWidth = 0.7f;
+    const float dx = to.x - from.x;
+    const float dy = to.y - from.y;
+    const float length = std::sqrt(dx * dx + dy * dy);
+    if (length == 0.0f) {
+        return {from, from, from, from};
+    }
+
+    const float offsetX = -dy * halfWidth / length;
+    const float offsetY = dx * halfWidth / length;
+    return {{
+        {from.x + offsetX, from.y + offsetY},
+        {to.x + offsetX, to.y + offsetY},
+        {to.x - offsetX, to.y - offsetY},
+        {from.x - offsetX, from.y - offsetY}
+    }};
+}
+
+bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& camera,
+                 const CameraBasis& basis, float elapsed, SceneBuffers& buffers) {
     const float focalLength = static_cast<float>(std::min(width, height)) * 0.8f;
     const float centerX = static_cast<float>(width) * 0.5f;
     const float centerY = static_cast<float>(height) * 0.5f;
 
-    const Point3D forward{
-        std::sin(camera.yaw) * std::cos(camera.pitch),
-        std::sin(camera.pitch),
-        std::cos(camera.yaw) * std::cos(camera.pitch)
-    };
-    const Point3D right{std::cos(camera.yaw), 0.0f, -std::sin(camera.yaw)};
-    const Point3D up{
-        forward.y * right.z - forward.z * right.y,
-        forward.z * right.x - forward.x * right.z,
-        forward.x * right.y - forward.y * right.x
-    };
+    buffers.faces.clear();
+    buffers.vertices.clear();
+    buffers.indices.clear();
 
-    std::vector<RenderFace> faces;
-    faces.reserve(8 * 8 * faceVertices.size());
+    const float angleZ = elapsed * 0.2f;
+    const float cosZ = std::cos(angleZ);
+    const float sinZ = std::sin(angleZ);
 
     for (int row = 0; row < 8; ++row) {
         for (int column = 0; column < 8; ++column) {
@@ -124,19 +196,18 @@ bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& ca
             const float phase = static_cast<float>(row * 8 + column) * 0.11f;
             const float angleX = elapsed * 0.35f + phase;
             const float angleY = elapsed * 0.55f + phase;
-            const float angleZ = elapsed * 0.2f;
+            const Rotation rotation = makeRotation(angleX, angleY, cosZ, sinZ);
 
             std::array<Point2D, 8> projectedVertices{};
             std::array<float, 8> depths{};
             for (std::size_t i = 0; i < cubeVertices.size(); ++i) {
-                const Point3D world = add(rotatePoint(cubeVertices[i], angleX, angleY, angleZ),
-                                          cubeCenter);
+                const Point3D world = add(rotatePoint(cubeVertices[i], rotation), cubeCenter);
                 const Point3D relative = subtract(world, camera.position);
-                depths[i] = dot(relative, forward);
+                depths[i] = dot(relative, basis.forward);
                 if (depths[i] > 0.1f) {
                     projectedVertices[i] = {
-                        centerX + dot(relative, right) * focalLength / depths[i],
-                        centerY - dot(relative, up) * focalLength / depths[i]
+                        centerX + dot(relative, basis.right) * focalLength / depths[i],
+                        centerY - dot(relative, basis.up) * focalLength / depths[i]
                     };
                 }
             }
@@ -155,12 +226,13 @@ bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& ca
                     face.depth += depths[index] * 0.25f;
                 }
                 if (visible) {
-                    faces.push_back(face);
+                    buffers.faces.push_back(face);
                 }
             }
         }
     }
-    std::sort(faces.begin(), faces.end(), [](const RenderFace& left, const RenderFace& right) {
+    std::sort(buffers.faces.begin(), buffers.faces.end(),
+              [](const RenderFace& left, const RenderFace& right) {
         return left.depth > right.depth;
     });
 
@@ -168,36 +240,23 @@ bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& ca
         return false;
     }
 
-    for (const RenderFace& face : faces) {
-        std::array<SDL_Vertex, 4> vertices{};
-        for (std::size_t i = 0; i < vertices.size(); ++i) {
-            const Point2D point = face.vertices[i];
-            vertices[i].position = {point.x, point.y};
-            vertices[i].color = face.color;
-        }
-
-        if (!SDL_RenderGeometry(renderer, nullptr, vertices.data(),
-                                static_cast<int>(vertices.size()), indices.data(),
-                                static_cast<int>(indices.size()))) {
-            return false;
-        }
-
-        if (!SDL_SetRenderDrawColor(renderer, 24, 28, 44, 255)) {
-            return false;
-        }
-        for (std::size_t i = 0; i < vertices.size(); ++i) {
+    constexpr SDL_FColor edgeColor{0.094f, 0.110f, 0.173f, 1.0f};
+    for (const RenderFace& face : buffers.faces) {
+        appendQuad(buffers, face.vertices, face.color);
+        for (std::size_t i = 0; i < face.vertices.size(); ++i) {
             const Point2D from = face.vertices[i];
-            const Point2D to = face.vertices[(i + 1) % vertices.size()];
-            if (!SDL_RenderLine(renderer, from.x, from.y, to.x, to.y)) {
-                return false;
-            }
+            const Point2D to = face.vertices[(i + 1) % face.vertices.size()];
+            appendQuad(buffers, makeLineQuad(from, to), edgeColor);
         }
     }
 
-    return true;
+    return buffers.indices.empty() ||
+           SDL_RenderGeometry(renderer, nullptr, buffers.vertices.data(),
+                              static_cast<int>(buffers.vertices.size()), buffers.indices.data(),
+                              static_cast<int>(buffers.indices.size()));
 }
 
-void moveCamera(Camera& camera, const bool* keys, float deltaTime) {
+void moveCamera(Camera& camera, const CameraBasis& basis, const bool* keys, float deltaTime) {
     const float forwardAmount = static_cast<float>(keys[SDL_SCANCODE_W]) -
                                 static_cast<float>(keys[SDL_SCANCODE_S]);
     const float rightAmount = static_cast<float>(keys[SDL_SCANCODE_D]) -
@@ -206,13 +265,7 @@ void moveCamera(Camera& camera, const bool* keys, float deltaTime) {
                                  static_cast<float>(keys[SDL_SCANCODE_LCTRL] ||
                                                     keys[SDL_SCANCODE_RCTRL]);
 
-    const Point3D forward{
-        std::sin(camera.yaw) * std::cos(camera.pitch),
-        std::sin(camera.pitch),
-        std::cos(camera.yaw) * std::cos(camera.pitch)
-    };
-    const Point3D right{std::cos(camera.yaw), 0.0f, -std::sin(camera.yaw)};
-    Point3D movement = add(add(scale(forward, forwardAmount), scale(right, rightAmount)),
+    Point3D movement = add(add(scale(basis.forward, forwardAmount), scale(basis.right, rightAmount)),
                            {0.0f, verticalAmount, 0.0f});
     const float magnitude = std::sqrt(dot(movement, movement));
     if (magnitude > 0.0f) {
@@ -264,8 +317,9 @@ bool run() {
     std::uint64_t previousFrame = startTime;
     std::uint64_t fpsUpdateTime = previousFrame;
     std::uint64_t fpsFrameCount = 0;
-    int displayedFps = 0;
+    std::string fpsText = "FPS: 0";
     Camera camera;
+    SceneBuffers sceneBuffers;
     constexpr float mouseSensitivity = 0.0025f;
 
     while (isRunning) {
@@ -301,7 +355,8 @@ bool run() {
                                static_cast<double>(performanceFrequency)),
             0.1f);
         previousFrame = now;
-        moveCamera(camera, SDL_GetKeyboardState(nullptr), deltaTime);
+        const CameraBasis cameraBasis = makeCameraBasis(camera);
+        moveCamera(camera, cameraBasis, SDL_GetKeyboardState(nullptr), deltaTime);
 
         int width = 0;
         int height = 0;
@@ -313,8 +368,10 @@ bool run() {
 
         if (width > 0 && height > 0) {
             if (!renderScene(renderer, width, height, camera,
+                             cameraBasis,
                              static_cast<float>(static_cast<double>(now - startTime) /
-                                                static_cast<double>(performanceFrequency)))) {
+                                                static_cast<double>(performanceFrequency)),
+                             sceneBuffers)) {
                 std::cerr << "Scene rendering failed: " << SDL_GetError() << std::endl;
                 succeeded = false;
                 break;
@@ -324,15 +381,15 @@ bool run() {
             const double fpsInterval = static_cast<double>(now - fpsUpdateTime) /
                                        static_cast<double>(performanceFrequency);
             if (fpsInterval >= 1.0) {
-                displayedFps = static_cast<int>(std::lround(
+                const int displayedFps = static_cast<int>(std::lround(
                     static_cast<double>(fpsFrameCount) / fpsInterval));
+                fpsText = "FPS: " + std::to_string(displayedFps);
                 fpsFrameCount = 0;
                 fpsUpdateTime = now;
             }
 
             if (!SDL_SetRenderDrawColor(renderer, 240, 245, 255, 255) ||
-                !SDL_RenderDebugText(renderer, 12.0f, 12.0f,
-                                     ("FPS: " + std::to_string(displayedFps)).c_str()) ||
+                !SDL_RenderDebugText(renderer, 12.0f, 12.0f, fpsText.c_str()) ||
                 !SDL_RenderDebugText(renderer, 12.0f, 28.0f,
                                      mouseCaptured
                                          ? "WASD move | Space/Ctrl up/down | Shift boost | Esc unlock"
