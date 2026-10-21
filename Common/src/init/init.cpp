@@ -29,21 +29,20 @@ struct RenderFace {
 };
 
 struct Camera {
-    Point3D position{0.0f, 5.0f, -15.0f};
+    Point3D position{-0.9f, 2.85f, -6.3f};
     float yaw = 0.0f;
-    float pitch = -0.25f;
+    float pitch = -0.1f;
+};
+
+struct PlayerPhysics {
+    float verticalVelocity = 0.0f;
+    bool grounded = true;
 };
 
 struct CameraBasis {
     Point3D forward;
     Point3D right;
     Point3D up;
-};
-
-struct Rotation {
-    float xx, xy, xz;
-    float yx, yy, yz;
-    float zx, zy, zz;
 };
 
 constexpr std::array<Point3D, 8> cubeVertices{{
@@ -62,6 +61,15 @@ constexpr std::array<std::array<int, 4>, 6> faceVertices{{
     {{0, 4, 5, 1}}, {{3, 2, 6, 7}},
     {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
 }};
+
+constexpr Point3D cubeHalfExtents{0.55f, 0.55f, 0.55f};
+constexpr float playerRadius = 0.25f;
+constexpr float playerHeight = 1.8f;
+constexpr float playerEyeHeight = 1.65f;
+constexpr float gravity = 20.0f;
+constexpr float jumpSpeed = 8.5f;
+constexpr float fallThreshold = -50.0f;
+constexpr Point3D spawnPosition{-0.9f, 2.85f, -6.3f};
 
 constexpr std::array<Point3D, 6> faceNormals{{
     {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 1.0f},
@@ -86,33 +94,6 @@ constexpr std::array<SDL_FColor, 6> faceColors{{
     {0.37f, 0.80f, 0.49f, 1.0f}, {0.96f, 0.75f, 0.27f, 1.0f},
     {0.65f, 0.45f, 0.92f, 1.0f}, {0.94f, 0.47f, 0.73f, 1.0f}
 }};
-
-Rotation makeRotation(float angleX, float angleY, float cosZ, float sinZ) {
-    const float cosX = std::cos(angleX);
-    const float sinX = std::sin(angleX);
-    const float cosY = std::cos(angleY);
-    const float sinY = std::sin(angleY);
-
-    return {
-        cosY * cosZ,
-        sinX * sinY * cosZ - cosX * sinZ,
-        cosX * sinY * cosZ + sinX * sinZ,
-        cosY * sinZ,
-        sinX * sinY * sinZ + cosX * cosZ,
-        cosX * sinY * sinZ - sinX * cosZ,
-        -sinY,
-        sinX * cosY,
-        cosX * cosY
-    };
-}
-
-Point3D rotatePoint(Point3D point, const Rotation& rotation) {
-    return {
-        point.x * rotation.xx + point.y * rotation.xy + point.z * rotation.xz,
-        point.x * rotation.yx + point.y * rotation.yy + point.z * rotation.yz,
-        point.x * rotation.zx + point.y * rotation.zy + point.z * rotation.zz
-    };
-}
 
 CameraBasis makeCameraBasis(const Camera& camera) {
     const float sinYaw = std::sin(camera.yaw);
@@ -144,6 +125,153 @@ Point3D add(Point3D left, Point3D right) {
 
 Point3D scale(Point3D point, float amount) {
     return {point.x * amount, point.y * amount, point.z * amount};
+}
+
+Point3D cubeCenter(int row, int column) {
+    return {
+        (static_cast<float>(column) - 3.5f) * 1.8f,
+        0.65f,
+        (static_cast<float>(row) - 3.5f) * 1.8f
+    };
+}
+
+bool overlapsCubeHorizontally(Point3D position, Point3D center) {
+    return std::abs(position.x - center.x) < cubeHalfExtents.x + playerRadius &&
+           std::abs(position.z - center.z) < cubeHalfExtents.z + playerRadius;
+}
+
+bool overlapsCubeVertically(Point3D position, Point3D center) {
+    const float playerBottom = position.y - playerEyeHeight;
+    const float playerTop = playerBottom + playerHeight;
+    const float cubeBottom = center.y - cubeHalfExtents.y;
+    const float cubeTop = center.y + cubeHalfExtents.y;
+    return playerBottom < cubeTop - 0.001f && playerTop > cubeBottom + 0.001f;
+}
+
+bool collidesWithCubeSides(Point3D position) {
+    for (int row = 0; row < 8; ++row) {
+        for (int column = 0; column < 8; ++column) {
+            const Point3D center = cubeCenter(row, column);
+            if (overlapsCubeHorizontally(position, center) &&
+                overlapsCubeVertically(position, center)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool hasCubeSupport(Point3D position) {
+    const float playerFeet = position.y - playerEyeHeight;
+    for (int row = 0; row < 8; ++row) {
+        for (int column = 0; column < 8; ++column) {
+            const Point3D center = cubeCenter(row, column);
+            const float cubeTop = center.y + cubeHalfExtents.y;
+            if (std::abs(playerFeet - cubeTop) <= 0.01f &&
+                overlapsCubeHorizontally(position, center)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+void movePlayer(Camera& camera, PlayerPhysics& physics, const bool* keys,
+                bool jumpPressed, float deltaTime) {
+    const float forwardAmount = static_cast<float>(keys[SDL_SCANCODE_W]) -
+                                static_cast<float>(keys[SDL_SCANCODE_S]);
+    const float rightAmount = static_cast<float>(keys[SDL_SCANCODE_D]) -
+                              static_cast<float>(keys[SDL_SCANCODE_A]);
+    const float sinYaw = std::sin(camera.yaw);
+    const float cosYaw = std::cos(camera.yaw);
+    Point3D movement{
+        sinYaw * forwardAmount + cosYaw * rightAmount,
+        0.0f,
+        cosYaw * forwardAmount - sinYaw * rightAmount
+    };
+    const float movementLength = std::sqrt(dot(movement, movement));
+    const int steps = std::max(1, static_cast<int>(std::ceil(deltaTime * 60.0f)));
+    const float stepDuration = deltaTime / static_cast<float>(steps);
+
+    for (int step = 0; step < steps; ++step) {
+        if (movementLength > 0.0f) {
+            const float speed = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]
+                                    ? 8.5f
+                                    : 5.0f;
+            const Point3D stepMovement =
+                scale(movement, speed * stepDuration / movementLength);
+
+            Point3D candidate = camera.position;
+            candidate.x += stepMovement.x;
+            if (!collidesWithCubeSides(candidate)) {
+                camera.position.x = candidate.x;
+            }
+
+            candidate = camera.position;
+            candidate.z += stepMovement.z;
+            if (!collidesWithCubeSides(candidate)) {
+                camera.position.z = candidate.z;
+            }
+        }
+
+        if (jumpPressed && physics.grounded) {
+            physics.verticalVelocity = jumpSpeed;
+            physics.grounded = false;
+        }
+        jumpPressed = false;
+
+        if (physics.grounded && !hasCubeSupport(camera.position)) {
+            physics.grounded = false;
+        }
+
+        if (!physics.grounded) {
+            const float previousFeet = camera.position.y - playerEyeHeight;
+            physics.verticalVelocity -= gravity * stepDuration;
+            const float nextFeet = previousFeet + physics.verticalVelocity * stepDuration;
+            bool collided = false;
+
+            for (int row = 0; row < 8; ++row) {
+                for (int column = 0; column < 8; ++column) {
+                    const Point3D center = cubeCenter(row, column);
+                    const float cubeTop = center.y + cubeHalfExtents.y;
+                    if (physics.verticalVelocity <= 0.0f && previousFeet >= cubeTop &&
+                        nextFeet <= cubeTop &&
+                        overlapsCubeHorizontally(camera.position, center)) {
+                        camera.position.y = cubeTop + playerEyeHeight;
+                        physics.verticalVelocity = 0.0f;
+                        physics.grounded = true;
+                        collided = true;
+                        break;
+                    }
+
+                    const float cubeBottom = center.y - cubeHalfExtents.y;
+                    const float previousHead = previousFeet + playerHeight;
+                    const float nextHead = nextFeet + playerHeight;
+                    if (physics.verticalVelocity > 0.0f && previousHead <= cubeBottom &&
+                        nextHead >= cubeBottom &&
+                        overlapsCubeHorizontally(camera.position, center)) {
+                        camera.position.y = cubeBottom - (playerHeight - playerEyeHeight);
+                        physics.verticalVelocity = 0.0f;
+                        collided = true;
+                        break;
+                    }
+                }
+                if (collided) {
+                    break;
+                }
+            }
+
+            if (!collided) {
+                camera.position.y = nextFeet + playerEyeHeight;
+            }
+        }
+
+        if (camera.position.y - playerEyeHeight < fallThreshold) {
+            camera.position = spawnPosition;
+            physics.verticalVelocity = 0.0f;
+            physics.grounded = true;
+        }
+    }
 }
 
 void appendQuad(SceneBuffers& buffers, const std::array<Point2D, 4>& points, SDL_FColor color) {
@@ -245,7 +373,7 @@ std::array<Point2D, 4> makeLineQuad(Point2D from, Point2D to) {
 }
 
 void renderScene(int width, int height, const Camera& camera, const CameraBasis& basis,
-                 float elapsed, const char* fpsText, SceneBuffers& buffers) {
+                 const char* fpsText, SceneBuffers& buffers) {
     const float focalLength = static_cast<float>(std::min(width, height)) * 0.8f;
     const float centerX = static_cast<float>(width) * 0.5f;
     const float centerY = static_cast<float>(height) * 0.5f;
@@ -254,28 +382,16 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     buffers.vertices.clear();
     buffers.indices.clear();
 
-    const float angleZ = elapsed * 0.2f;
-    const float cosZ = std::cos(angleZ);
-    const float sinZ = std::sin(angleZ);
-
     for (int row = 0; row < 8; ++row) {
         for (int column = 0; column < 8; ++column) {
-            const Point3D cubeCenter{
-                (static_cast<float>(column) - 3.5f) * 1.8f,
-                0.65f,
-                (static_cast<float>(row) - 3.5f) * 1.8f
-            };
-            const float phase = static_cast<float>(row * 8 + column) * 0.11f;
-            const float angleX = elapsed * 0.35f + phase;
-            const float angleY = elapsed * 0.55f + phase;
-            const Rotation rotation = makeRotation(angleX, angleY, cosZ, sinZ);
-            const Point3D cameraRelative = subtract(camera.position, cubeCenter);
+            const Point3D center = cubeCenter(row, column);
+            const Point3D cameraRelative = subtract(camera.position, center);
             const bool cullBackFaces = dot(cameraRelative, cameraRelative) > 1.0f;
 
             std::array<Point2D, 8> projectedVertices{};
             std::array<float, 8> depths{};
             for (std::size_t i = 0; i < cubeVertices.size(); ++i) {
-                const Point3D world = add(rotatePoint(cubeVertices[i], rotation), cubeCenter);
+                const Point3D world = add(cubeVertices[i], center);
                 const Point3D relative = subtract(world, camera.position);
                 depths[i] = dot(relative, basis.forward);
                 if (depths[i] > 0.1f) {
@@ -288,7 +404,7 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
 
             for (std::size_t i = 0; i < faceVertices.size(); ++i) {
                 if (cullBackFaces &&
-                    dot(rotatePoint(faceNormals[i], rotation), cameraRelative) <= 0.0f) {
+                    dot(faceNormals[i], cameraRelative) <= 0.0f) {
                     continue;
                 }
                 RenderFace face{};
@@ -327,26 +443,8 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     appendText(buffers, fpsText, 12.0f, 12.0f, 1.5f,
                {0.94f, 0.96f, 1.0f, 1.0f});
     appendText(buffers,
-               "WASD MOVE | SPACE/CTRL UP/DOWN | SHIFT BOOST | CLICK LOOK | ESC UNLOCK",
+               "WASD MOVE | SPACE JUMP | SHIFT RUN | CLICK LOOK | ESC UNLOCK",
                12.0f, 28.0f, 1.0f, {0.94f, 0.96f, 1.0f, 1.0f});
-}
-
-void moveCamera(Camera& camera, const CameraBasis& basis, const bool* keys, float deltaTime) {
-    const float forwardAmount = static_cast<float>(keys[SDL_SCANCODE_W]) -
-                                static_cast<float>(keys[SDL_SCANCODE_S]);
-    const float rightAmount = static_cast<float>(keys[SDL_SCANCODE_D]) -
-                              static_cast<float>(keys[SDL_SCANCODE_A]);
-    const float verticalAmount = static_cast<float>(keys[SDL_SCANCODE_SPACE]) -
-                                 static_cast<float>(keys[SDL_SCANCODE_LCTRL] ||
-                                                    keys[SDL_SCANCODE_RCTRL]);
-
-    Point3D movement = add(add(scale(basis.forward, forwardAmount), scale(basis.right, rightAmount)),
-                           {0.0f, verticalAmount, 0.0f});
-    const float magnitude = std::sqrt(dot(movement, movement));
-    if (magnitude > 0.0f) {
-        const float speed = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT] ? 18.0f : 6.0f;
-        camera.position = add(camera.position, scale(movement, speed * deltaTime / magnitude));
-    }
 }
 
 } // namespace
@@ -391,8 +489,10 @@ bool run() {
     std::uint64_t fpsFrameCount = 0;
     std::string fpsText = "FPS: 0";
     Camera camera;
+    PlayerPhysics playerPhysics;
     SceneBuffers sceneBuffers;
     constexpr float mouseSensitivity = 0.0025f;
+    bool jumpPressed = false;
 
     while (isRunning) {
         while (SDL_PollEvent(&event)) {
@@ -414,6 +514,9 @@ bool run() {
                 } else {
                     std::cerr << "Could not release mouse: " << SDL_GetError() << std::endl;
                 }
+            } else if (event.type == SDL_EVENT_KEY_DOWN &&
+                       event.key.scancode == SDL_SCANCODE_SPACE && !event.key.repeat) {
+                jumpPressed = true;
             }
         }
 
@@ -428,7 +531,9 @@ bool run() {
             0.1f);
         previousFrame = now;
         const CameraBasis cameraBasis = makeCameraBasis(camera);
-        moveCamera(camera, cameraBasis, SDL_GetKeyboardState(nullptr), deltaTime);
+        movePlayer(camera, playerPhysics, SDL_GetKeyboardState(nullptr),
+                   jumpPressed, deltaTime);
+        jumpPressed = false;
 
         ++fpsFrameCount;
         const double fpsInterval = static_cast<double>(now - fpsUpdateTime) /
@@ -449,10 +554,7 @@ bool run() {
             break;
         }
         if (width > 0 && height > 0) {
-            renderScene(width, height, camera, cameraBasis,
-                        static_cast<float>(static_cast<double>(now - startTime) /
-                                           static_cast<double>(performanceFrequency)),
-                        fpsText.c_str(), sceneBuffers);
+            renderScene(width, height, camera, cameraBasis, fpsText.c_str(), sceneBuffers);
             if (!renderer.render(sceneBuffers.vertices, sceneBuffers.indices, rendererError)) {
                 std::cerr << "Vulkan frame rendering failed: " << rendererError << std::endl;
                 succeeded = false;

@@ -1,5 +1,12 @@
 # MyGame
 
+## Gameplay
+
+The 8x8 cube field is stationary and has solid collisions. Use **WASD** to walk,
+**Space** to jump, **Shift** to run, click to capture the mouse for looking around,
+and **Esc** to release the mouse. Gravity pulls the player onto the cubes; falling
+below Y = -50 returns the player to the starting cube.
+
 ## Vulkan shaders
 
 The GLSL sources are in `Common/shaders`. CMake uses `glslc`, `glslangValidator`, or
