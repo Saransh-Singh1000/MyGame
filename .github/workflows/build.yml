@@ -40,6 +40,11 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Install shader compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y glslang-tools
+
       - name: Cache Gradle Caches & CMake FetchContent
         uses: actions/cache@v4
         with:
@@ -91,7 +96,7 @@ jobs:
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.268.0
-          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang
           vulkan-use-cache: true
 
       - name: Cache CMake Dependencies (SDL3, ENet)
@@ -132,13 +137,13 @@ jobs:
           sudo apt update
           sudo apt install -y ninja-build clang cmake \
             libwayland-dev libx11-dev libxext-dev libxrandr-dev \
-            libxinerama-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev
+            libxinerama-dev libxcursor-dev libxi-dev libxss-dev libxtst-dev glslc
 
       - name: Setup & Cache Vulkan SDK
         uses: humbletim/setup-vulkan-sdk@v1.2.1
         with:
           vulkan-query-version: 1.3.268.0
-          vulkan-components: Vulkan-Headers, Vulkan-Loader
+          vulkan-components: Vulkan-Headers, Vulkan-Loader, Glslang
           vulkan-use-cache: true
 
       - name: Cache CMake Dependencies (SDL3, ENet)

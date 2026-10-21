@@ -85,9 +85,13 @@ target_include_directories(MyGameCommon
     PUBLIC
         "${COMMON_DIR}/include"
         "${COMMON_DIR}/include/init"
+        "${directxmath_SOURCE_DIR}/Inc"
     PRIVATE
         "${COMMON_DIR}/src"
 )
+
+include("${COMMON_DIR}/cmake/VulkanShaders.cmake")
+mygame_compile_vulkan_shaders(MyGameCommon)
 
 # Link general engine dependencies to static common target
 target_link_libraries(MyGameCommon

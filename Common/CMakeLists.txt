@@ -28,3 +28,6 @@ target_link_libraries(MyGameCommon
         Vulkan::Vulkan
         Jolt
 )
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VulkanShaders.cmake")
+mygame_compile_vulkan_shaders(MyGameCommon)

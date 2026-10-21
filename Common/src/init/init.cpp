@@ -1,4 +1,5 @@
 #include "init.hpp"
+#include "renderer/vulkan_renderer.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
@@ -64,8 +65,8 @@ constexpr std::array<std::array<int, 4>, 6> faceVertices{{
 
 struct SceneBuffers {
     std::vector<RenderFace> faces;
-    std::vector<SDL_Vertex> vertices;
-    std::vector<int> indices;
+    std::vector<VulkanVertex> vertices;
+    std::vector<std::uint32_t> indices;
 
     SceneBuffers() {
         faces.reserve(8 * 8 * faceVertices.size());
@@ -140,16 +141,81 @@ Point3D scale(Point3D point, float amount) {
 }
 
 void appendQuad(SceneBuffers& buffers, const std::array<Point2D, 4>& points, SDL_FColor color) {
-    constexpr std::array<int, 6> indices{{0, 1, 2, 0, 2, 3}};
-    const int firstVertex = static_cast<int>(buffers.vertices.size());
+    constexpr std::array<std::uint32_t, 6> indices{{0, 1, 2, 0, 2, 3}};
+    const std::uint32_t firstVertex = static_cast<std::uint32_t>(buffers.vertices.size());
     for (const Point2D point : points) {
-        SDL_Vertex vertex{};
-        vertex.position = {point.x, point.y};
-        vertex.color = color;
-        buffers.vertices.push_back(vertex);
+        buffers.vertices.push_back({point.x, point.y, color.r, color.g, color.b, color.a});
     }
-    for (const int index : indices) {
+    for (const std::uint32_t index : indices) {
         buffers.indices.push_back(firstVertex + index);
+    }
+}
+
+std::array<std::uint8_t, 7> glyph(char character) {
+    switch (character) {
+    case 'A': return {14, 17, 17, 31, 17, 17, 17};
+    case 'B': return {30, 17, 17, 30, 17, 17, 30};
+    case 'C': return {14, 17, 16, 16, 16, 17, 14};
+    case 'D': return {30, 17, 17, 17, 17, 17, 30};
+    case 'E': return {31, 16, 16, 30, 16, 16, 31};
+    case 'F': return {31, 16, 16, 30, 16, 16, 16};
+    case 'G': return {14, 17, 16, 23, 17, 17, 15};
+    case 'H': return {17, 17, 17, 31, 17, 17, 17};
+    case 'I': return {14, 4, 4, 4, 4, 4, 14};
+    case 'K': return {17, 18, 20, 24, 20, 18, 17};
+    case 'L': return {16, 16, 16, 16, 16, 16, 31};
+    case 'M': return {17, 27, 21, 21, 17, 17, 17};
+    case 'N': return {17, 25, 21, 19, 17, 17, 17};
+    case 'O': return {14, 17, 17, 17, 17, 17, 14};
+    case 'P': return {30, 17, 17, 30, 16, 16, 16};
+    case 'R': return {30, 17, 17, 30, 20, 18, 17};
+    case 'S': return {15, 16, 16, 14, 1, 1, 30};
+    case 'T': return {31, 4, 4, 4, 4, 4, 4};
+    case 'U': return {17, 17, 17, 17, 17, 17, 14};
+    case 'V': return {17, 17, 17, 17, 17, 10, 4};
+    case 'W': return {17, 17, 17, 21, 21, 21, 10};
+    case '0': return {14, 17, 19, 21, 25, 17, 14};
+    case '1': return {4, 12, 4, 4, 4, 4, 14};
+    case '2': return {14, 17, 1, 2, 4, 8, 31};
+    case '3': return {30, 1, 1, 14, 1, 1, 30};
+    case '4': return {2, 6, 10, 18, 31, 2, 2};
+    case '5': return {31, 16, 16, 30, 1, 1, 30};
+    case '6': return {14, 16, 16, 30, 17, 17, 14};
+    case '7': return {31, 1, 2, 4, 8, 8, 8};
+    case '8': return {14, 17, 17, 14, 17, 17, 14};
+    case '9': return {14, 17, 17, 15, 1, 1, 14};
+    case ':': return {0, 4, 4, 0, 4, 4, 0};
+    case '/': return {1, 2, 2, 4, 8, 8, 16};
+    case '|': return {4, 4, 4, 4, 4, 4, 4};
+    case '-': return {0, 0, 0, 31, 0, 0, 0};
+    default: return {};
+    }
+}
+
+void appendText(SceneBuffers& buffers, const char* text, float x, float y, float scale,
+                SDL_FColor color) {
+    const float originX = x;
+    for (const char* character = text; *character != '\0'; ++character) {
+        if (*character == '\n') {
+            x = originX;
+            y += 9.0f * scale;
+            continue;
+        }
+        const auto rows = glyph(*character);
+        for (std::size_t row = 0; row < rows.size(); ++row) {
+            for (int column = 0; column < 5; ++column) {
+                if ((rows[row] & (1u << (4 - column))) == 0) {
+                    continue;
+                }
+                const float left = x + static_cast<float>(column) * scale;
+                const float top = y + static_cast<float>(row) * scale;
+                appendQuad(buffers,
+                           {{{left, top}, {left + scale, top},
+                             {left + scale, top + scale}, {left, top + scale}}},
+                           color);
+            }
+        }
+        x += 6.0f * scale;
     }
 }
 
@@ -172,8 +238,8 @@ std::array<Point2D, 4> makeLineQuad(Point2D from, Point2D to) {
     }};
 }
 
-bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& camera,
-                 const CameraBasis& basis, float elapsed, SceneBuffers& buffers) {
+void renderScene(int width, int height, const Camera& camera, const CameraBasis& basis,
+                 float elapsed, const char* fpsText, SceneBuffers& buffers) {
     const float focalLength = static_cast<float>(std::min(width, height)) * 0.8f;
     const float centerX = static_cast<float>(width) * 0.5f;
     const float centerY = static_cast<float>(height) * 0.5f;
@@ -236,10 +302,6 @@ bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& ca
         return left.depth > right.depth;
     });
 
-    if (!SDL_SetRenderDrawColor(renderer, 14, 18, 32, 255) || !SDL_RenderClear(renderer)) {
-        return false;
-    }
-
     constexpr SDL_FColor edgeColor{0.094f, 0.110f, 0.173f, 1.0f};
     for (const RenderFace& face : buffers.faces) {
         appendQuad(buffers, face.vertices, face.color);
@@ -250,10 +312,11 @@ bool renderScene(SDL_Renderer* renderer, int width, int height, const Camera& ca
         }
     }
 
-    return buffers.indices.empty() ||
-           SDL_RenderGeometry(renderer, nullptr, buffers.vertices.data(),
-                              static_cast<int>(buffers.vertices.size()), buffers.indices.data(),
-                              static_cast<int>(buffers.indices.size()));
+    appendText(buffers, fpsText, 12.0f, 12.0f, 1.5f,
+               {0.94f, 0.96f, 1.0f, 1.0f});
+    appendText(buffers,
+               "WASD MOVE | SPACE/CTRL UP/DOWN | SHIFT BOOST | CLICK LOOK | ESC UNLOCK",
+               12.0f, 28.0f, 1.0f, {0.94f, 0.96f, 1.0f, 1.0f});
 }
 
 void moveCamera(Camera& camera, const CameraBasis& basis, const bool* keys, float deltaTime) {
@@ -287,7 +350,7 @@ bool run() {
     SDL_Window* window = SDL_CreateWindow(
         "Engine Window",
         1280, 720,
-        SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN
     );
 
     if (!window) {
@@ -296,16 +359,13 @@ bool run() {
         return false;
     }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, nullptr);
-    if (!renderer) {
-        std::cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << std::endl;
+    VulkanRenderer renderer;
+    std::string rendererError;
+    if (!renderer.initialize(window, rendererError)) {
+        std::cerr << "Vulkan renderer initialization failed: " << rendererError << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return false;
-    }
-
-    if (!SDL_SetRenderVSync(renderer, 0)) {
-        std::cerr << "Could not disable renderer VSync: " << SDL_GetError() << std::endl;
     }
 
     bool isRunning = true;
@@ -358,49 +418,31 @@ bool run() {
         const CameraBasis cameraBasis = makeCameraBasis(camera);
         moveCamera(camera, cameraBasis, SDL_GetKeyboardState(nullptr), deltaTime);
 
+        ++fpsFrameCount;
+        const double fpsInterval = static_cast<double>(now - fpsUpdateTime) /
+                                   static_cast<double>(performanceFrequency);
+        if (fpsInterval >= 1.0) {
+            const int displayedFps = static_cast<int>(std::lround(
+                static_cast<double>(fpsFrameCount) / fpsInterval));
+            fpsText = "FPS: " + std::to_string(displayedFps);
+            fpsFrameCount = 0;
+            fpsUpdateTime = now;
+        }
+
         int width = 0;
         int height = 0;
-        if (!SDL_GetCurrentRenderOutputSize(renderer, &width, &height)) {
-            std::cerr << "SDL_GetCurrentRenderOutputSize Error: " << SDL_GetError() << std::endl;
+        if (!SDL_GetWindowSizeInPixels(window, &width, &height)) {
+            std::cerr << "SDL_GetWindowSizeInPixels Error: " << SDL_GetError() << std::endl;
             succeeded = false;
             break;
         }
-
         if (width > 0 && height > 0) {
-            if (!renderScene(renderer, width, height, camera,
-                             cameraBasis,
-                             static_cast<float>(static_cast<double>(now - startTime) /
-                                                static_cast<double>(performanceFrequency)),
-                             sceneBuffers)) {
-                std::cerr << "Scene rendering failed: " << SDL_GetError() << std::endl;
-                succeeded = false;
-                break;
-            }
-
-            ++fpsFrameCount;
-            const double fpsInterval = static_cast<double>(now - fpsUpdateTime) /
-                                       static_cast<double>(performanceFrequency);
-            if (fpsInterval >= 1.0) {
-                const int displayedFps = static_cast<int>(std::lround(
-                    static_cast<double>(fpsFrameCount) / fpsInterval));
-                fpsText = "FPS: " + std::to_string(displayedFps);
-                fpsFrameCount = 0;
-                fpsUpdateTime = now;
-            }
-
-            if (!SDL_SetRenderDrawColor(renderer, 240, 245, 255, 255) ||
-                !SDL_RenderDebugText(renderer, 12.0f, 12.0f, fpsText.c_str()) ||
-                !SDL_RenderDebugText(renderer, 12.0f, 28.0f,
-                                     mouseCaptured
-                                         ? "WASD move | Space/Ctrl up/down | Shift boost | Esc unlock"
-                                         : "WASD move | Space/Ctrl up/down | Shift boost | Click to look")) {
-                std::cerr << "FPS overlay rendering failed: " << SDL_GetError() << std::endl;
-                succeeded = false;
-                break;
-            }
-
-            if (!SDL_RenderPresent(renderer)) {
-                std::cerr << "SDL_RenderPresent Error: " << SDL_GetError() << std::endl;
+            renderScene(width, height, camera, cameraBasis,
+                        static_cast<float>(static_cast<double>(now - startTime) /
+                                           static_cast<double>(performanceFrequency)),
+                        fpsText.c_str(), sceneBuffers);
+            if (!renderer.render(sceneBuffers.vertices, sceneBuffers.indices, rendererError)) {
+                std::cerr << "Vulkan frame rendering failed: " << rendererError << std::endl;
                 succeeded = false;
                 break;
             }
@@ -410,7 +452,7 @@ bool run() {
     if (mouseCaptured) {
         SDL_SetWindowRelativeMouseMode(window, false);
     }
-    SDL_DestroyRenderer(renderer);
+    renderer.shutdown();
     SDL_DestroyWindow(window);
     SDL_Quit();
     return succeeded;
