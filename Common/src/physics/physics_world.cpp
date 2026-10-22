@@ -68,6 +68,11 @@ public:
     JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer) const override {
         return JPH::BroadPhaseLayer(0);
     }
+#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
+    const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer) const override {
+        return "Objects";
+    }
+#endif
 };
 
 class ObjectVsBroadPhaseFilter final : public JPH::ObjectVsBroadPhaseLayerFilter {

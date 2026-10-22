@@ -175,10 +175,11 @@ void movePlayer(Physics::PhysicsWorld& physics, Camera& camera, const bool* keys
     }
     physics.setPlayerMovement({movement.x, 0.0f, movement.z}, jumpPressed);
     physics.step(deltaTime);
-    camera.position = physics.playerEyePosition();
+    const Physics::Vector3 playerPosition = physics.playerEyePosition();
+    camera.position = {playerPosition.x, playerPosition.y, playerPosition.z};
 
     if (camera.position.y - playerEyeHeight < fallThreshold) {
-        physics.resetPlayer(spawnPosition);
+        physics.resetPlayer({spawnPosition.x, spawnPosition.y, spawnPosition.z});
         camera.position = spawnPosition;
     }
 }
@@ -434,7 +435,7 @@ bool run(bool useOpenGL) {
         return false;
     }
     physics.createCube({0.0f, 0.7f, 0.0f}, {500.0f, 0.5f, 500.0f});
-    physics.createPlayer(spawnPosition);
+    physics.createPlayer({spawnPosition.x, spawnPosition.y, spawnPosition.z});
     SceneBuffers sceneBuffers;
     constexpr float mouseSensitivity = 0.0025f;
     bool jumpPressed = false;
