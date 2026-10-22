@@ -2,6 +2,23 @@ cmake_minimum_required(VERSION 3.20)
 
 project(MyGameCommon LANGUAGES CXX C)
 
+include(FetchContent)
+
+set(TARGET_HELLO_WORLD OFF CACHE BOOL "" FORCE)
+set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
+set(TARGET_VIEWER OFF CACHE BOOL "" FORCE)
+set(TARGET_PERFORMANCE_TEST OFF CACHE BOOL "" FORCE)
+set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    JoltPhysics
+    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+    GIT_TAG        v5.3.0
+    SOURCE_SUBDIR  Build
+)
+FetchContent_MakeAvailable(JoltPhysics)
+
 file(GLOB_RECURSE COMMON_SOURCES CONFIGURE_DEPENDS "src/*.cpp" "src/*.c")
 file(GLOB_RECURSE COMMON_HEADERS CONFIGURE_DEPENDS "include/*.hpp" "include/*.h")
 
@@ -24,6 +41,7 @@ target_link_libraries(MyGameCommon
     PUBLIC
         SDL3::SDL3-static
         Vulkan::Vulkan
+        Jolt
 )
 
 if(NOT ANDROID)

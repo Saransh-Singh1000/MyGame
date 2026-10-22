@@ -1,4 +1,5 @@
 #include "init.hpp"
+#include "physics/physics_world.hpp"
 #include "renderer/opengl_renderer.hpp"
 #include "renderer/renderer.hpp"
 #include "renderer/vulkan_renderer.hpp"
@@ -38,11 +39,6 @@ struct Camera {
     float pitch = -0.1f;
 };
 
-struct PlayerPhysics {
-    float verticalVelocity = 0.0f;
-    bool grounded = true;
-};
-
 struct CameraBasis {
     Point3D forward;
     Point3D right;
@@ -50,14 +46,14 @@ struct CameraBasis {
 };
 
 constexpr std::array<Point3D, 8> cubeVertices{{
-    {-0.55f, -0.55f, -0.55f},
-    { 0.55f, -0.55f, -0.55f},
-    { 0.55f,  0.55f, -0.55f},
-    {-0.55f,  0.55f, -0.55f},
-    {-0.55f, -0.55f,  0.55f},
-    { 0.55f, -0.55f,  0.55f},
-    { 0.55f,  0.55f,  0.55f},
-    {-0.55f,  0.55f,  0.55f}
+    {-0.49f, -0.5f, -0.49f},
+    { 0.49f, -0.5f, -0.49f},
+    { 0.49f,  0.5f, -0.49f},
+    {-0.49f,  0.5f, -0.49f},
+    {-0.49f, -0.5f,  0.49f},
+    { 0.49f, -0.5f,  0.49f},
+    { 0.49f,  0.5f,  0.49f},
+    {-0.49f,  0.5f,  0.49f}
 }};
 
 constexpr std::array<std::array<int, 4>, 6> faceVertices{{
@@ -66,29 +62,8 @@ constexpr std::array<std::array<int, 4>, 6> faceVertices{{
     {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
 }};
 
-constexpr auto makeCubeCenters() {
-    std::array<Point3D, 64> centers{};
-    for (int row = 0; row < 8; ++row) {
-        for (int column = 0; column < 8; ++column) {
-            centers[static_cast<std::size_t>(row * 8 + column)] = {
-                (static_cast<float>(column) - 3.5f) * 1.8f,
-                0.65f,
-                (static_cast<float>(row) - 3.5f) * 1.8f
-            };
-        }
-    }
-    return centers;
-}
-
-constexpr std::array<Point3D, 64> cubeCenters = makeCubeCenters();
-
-constexpr Point3D cubeHalfExtents{0.55f, 0.55f, 0.55f};
-constexpr float playerRadius = 0.25f;
-constexpr float playerHeight = 1.8f;
-constexpr float playerEyeHeight = 1.65f;
-constexpr float gravity = 20.0f;
-constexpr float jumpSpeed = 8.5f;
 constexpr float fallThreshold = -50.0f;
+constexpr float playerEyeHeight = 1.65f;
 constexpr Point3D spawnPosition{-0.9f, 2.85f, -6.3f};
 
 constexpr std::array<Point3D, 6> faceNormals{{
@@ -103,9 +78,9 @@ struct SceneBuffers {
     std::vector<std::uint32_t> indices;
 
     SceneBuffers() {
-        faces.reserve(8 * 8 * faceVertices.size());
-        vertices.reserve(8 * 8 * faceVertices.size() * 5 * 4);
-        indices.reserve(8 * 8 * faceVertices.size() * 5 * 6);
+        faces.reserve(4225 * faceVertices.size());
+        vertices.reserve(4225 * faceVertices.size() * 5 * 4);
+        indices.reserve(4225 * faceVertices.size() * 5 * 6);
     }
 };
 
@@ -178,52 +153,7 @@ Point3D scale(Point3D point, float amount) {
     return {point.x * amount, point.y * amount, point.z * amount};
 }
 
-Point3D cubeCenter(int row, int column) {
-    return cubeCenters[static_cast<std::size_t>(row * 8 + column)];
-}
-
-bool overlapsCubeHorizontally(Point3D position, Point3D center) {
-    return std::abs(position.x - center.x) < cubeHalfExtents.x + playerRadius &&
-           std::abs(position.z - center.z) < cubeHalfExtents.z + playerRadius;
-}
-
-bool overlapsCubeVertically(Point3D position, Point3D center) {
-    const float playerBottom = position.y - playerEyeHeight;
-    const float playerTop = playerBottom + playerHeight;
-    const float cubeBottom = center.y - cubeHalfExtents.y;
-    const float cubeTop = center.y + cubeHalfExtents.y;
-    return playerBottom < cubeTop - 0.001f && playerTop > cubeBottom + 0.001f;
-}
-
-bool collidesWithCubeSides(Point3D position) {
-    for (int row = 0; row < 8; ++row) {
-        for (int column = 0; column < 8; ++column) {
-            const Point3D center = cubeCenter(row, column);
-            if (overlapsCubeHorizontally(position, center) &&
-                overlapsCubeVertically(position, center)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-bool hasCubeSupport(Point3D position) {
-    const float playerFeet = position.y - playerEyeHeight;
-    for (int row = 0; row < 8; ++row) {
-        for (int column = 0; column < 8; ++column) {
-            const Point3D center = cubeCenter(row, column);
-            const float cubeTop = center.y + cubeHalfExtents.y;
-            if (std::abs(playerFeet - cubeTop) <= 0.01f &&
-                overlapsCubeHorizontally(position, center)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-void movePlayer(Camera& camera, PlayerPhysics& physics, const bool* keys,
+void movePlayer(Physics::PhysicsWorld& physics, Camera& camera, const bool* keys,
                 bool jumpPressed, float deltaTime) {
     const float forwardAmount = static_cast<float>(keys[SDL_SCANCODE_W]) -
                                 static_cast<float>(keys[SDL_SCANCODE_S]);
@@ -237,87 +167,19 @@ void movePlayer(Camera& camera, PlayerPhysics& physics, const bool* keys,
         cosYaw * forwardAmount - sinYaw * rightAmount
     };
     const float movementLength = std::sqrt(dot(movement, movement));
-    const int steps = std::max(1, static_cast<int>(std::ceil(deltaTime * 60.0f)));
-    const float stepDuration = deltaTime / static_cast<float>(steps);
+    const float speed = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]
+                            ? 8.5f
+                            : 5.0f;
+    if (movementLength > 0.0f) {
+        movement = scale(movement, speed / movementLength);
+    }
+    physics.setPlayerMovement({movement.x, 0.0f, movement.z}, jumpPressed);
+    physics.step(deltaTime);
+    camera.position = physics.playerEyePosition();
 
-    for (int step = 0; step < steps; ++step) {
-        if (movementLength > 0.0f) {
-            const float speed = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]
-                                    ? 8.5f
-                                    : 5.0f;
-            const Point3D stepMovement =
-                scale(movement, speed * stepDuration / movementLength);
-
-            Point3D candidate = camera.position;
-            candidate.x += stepMovement.x;
-            if (!collidesWithCubeSides(candidate)) {
-                camera.position.x = candidate.x;
-            }
-
-            candidate = camera.position;
-            candidate.z += stepMovement.z;
-            if (!collidesWithCubeSides(candidate)) {
-                camera.position.z = candidate.z;
-            }
-        }
-
-        if (jumpPressed && physics.grounded) {
-            physics.verticalVelocity = jumpSpeed;
-            physics.grounded = false;
-        }
-        jumpPressed = false;
-
-        if (physics.grounded && !hasCubeSupport(camera.position)) {
-            physics.grounded = false;
-        }
-
-        if (!physics.grounded) {
-            const float previousFeet = camera.position.y - playerEyeHeight;
-            physics.verticalVelocity -= gravity * stepDuration;
-            const float nextFeet = previousFeet + physics.verticalVelocity * stepDuration;
-            bool collided = false;
-
-            for (int row = 0; row < 8; ++row) {
-                for (int column = 0; column < 8; ++column) {
-                    const Point3D center = cubeCenter(row, column);
-                    const float cubeTop = center.y + cubeHalfExtents.y;
-                    if (physics.verticalVelocity <= 0.0f && previousFeet >= cubeTop &&
-                        nextFeet <= cubeTop &&
-                        overlapsCubeHorizontally(camera.position, center)) {
-                        camera.position.y = cubeTop + playerEyeHeight;
-                        physics.verticalVelocity = 0.0f;
-                        physics.grounded = true;
-                        collided = true;
-                        break;
-                    }
-
-                    const float cubeBottom = center.y - cubeHalfExtents.y;
-                    const float previousHead = previousFeet + playerHeight;
-                    const float nextHead = nextFeet + playerHeight;
-                    if (physics.verticalVelocity > 0.0f && previousHead <= cubeBottom &&
-                        nextHead >= cubeBottom &&
-                        overlapsCubeHorizontally(camera.position, center)) {
-                        camera.position.y = cubeBottom - (playerHeight - playerEyeHeight);
-                        physics.verticalVelocity = 0.0f;
-                        collided = true;
-                        break;
-                    }
-                }
-                if (collided) {
-                    break;
-                }
-            }
-
-            if (!collided) {
-                camera.position.y = nextFeet + playerEyeHeight;
-            }
-        }
-
-        if (camera.position.y - playerEyeHeight < fallThreshold) {
-            camera.position = spawnPosition;
-            physics.verticalVelocity = 0.0f;
-            physics.grounded = true;
-        }
+    if (camera.position.y - playerEyeHeight < fallThreshold) {
+        physics.resetPlayer(spawnPosition);
+        camera.position = spawnPosition;
     }
 }
 
@@ -431,9 +293,23 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     buffers.vertices.clear();
     buffers.indices.clear();
 
-    for (int row = 0; row < 8; ++row) {
-        for (int column = 0; column < 8; ++column) {
-            const Point3D center = cubeCenters[static_cast<std::size_t>(row * 8 + column)];
+    constexpr int platformTileCount = 1000;
+    constexpr int renderRadius = 32;
+    const int centerColumn = std::clamp(
+        static_cast<int>(std::floor(camera.position.x + platformTileCount * 0.5f)),
+        0, platformTileCount - 1);
+    const int centerRow = std::clamp(
+        static_cast<int>(std::floor(camera.position.z + platformTileCount * 0.5f)),
+        0, platformTileCount - 1);
+    const int firstColumn = std::max(0, centerColumn - renderRadius);
+    const int lastColumn = std::min(platformTileCount - 1, centerColumn + renderRadius);
+    const int firstRow = std::max(0, centerRow - renderRadius);
+    const int lastRow = std::min(platformTileCount - 1, centerRow + renderRadius);
+
+    for (int row = firstRow; row <= lastRow; ++row) {
+        for (int column = firstColumn; column <= lastColumn; ++column) {
+            const Point3D center{static_cast<float>(column) - 499.5f, 0.7f,
+                                 static_cast<float>(row) - 499.5f};
             const Point3D cameraRelative = subtract(camera.position, center);
             const bool cullBackFaces = dot(cameraRelative, cameraRelative) > 1.0f;
 
@@ -540,7 +416,16 @@ bool run() {
     std::uint64_t fpsFrameCount = 0;
     std::string fpsText = "FPS: 0";
     Camera camera;
-    PlayerPhysics playerPhysics;
+    Physics::PhysicsWorld physics;
+    if (!physics.initialize()) {
+        std::cerr << "Jolt Physics initialization failed" << std::endl;
+        renderer->shutdown();
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return false;
+    }
+    physics.createCube({0.0f, 0.7f, 0.0f}, {500.0f, 0.5f, 500.0f});
+    physics.createPlayer(spawnPosition);
     SceneBuffers sceneBuffers;
     constexpr float mouseSensitivity = 0.0025f;
     bool jumpPressed = false;
@@ -643,8 +528,7 @@ bool run() {
         previousFrame = now;
         const CameraBasis cameraBasis = makeCameraBasis(camera);
         if (!settingsOpen) {
-            movePlayer(camera, playerPhysics, SDL_GetKeyboardState(nullptr),
-                       jumpPressed, deltaTime);
+            movePlayer(physics, camera, SDL_GetKeyboardState(nullptr), jumpPressed, deltaTime);
         }
         jumpPressed = false;
 

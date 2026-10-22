@@ -8,6 +8,7 @@ set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
 
@@ -41,8 +42,23 @@ FetchContent_Declare(
     GIT_TAG        release-3.2.0
 )
 
+# --- Jolt Physics Setup ---
+set(TARGET_HELLO_WORLD OFF CACHE BOOL "" FORCE)
+set(TARGET_SAMPLES OFF CACHE BOOL "" FORCE)
+set(TARGET_VIEWER OFF CACHE BOOL "" FORCE)
+set(TARGET_PERFORMANCE_TEST OFF CACHE BOOL "" FORCE)
+set(TARGET_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+set(INTERPROCEDURAL_OPTIMIZATION OFF CACHE BOOL "" FORCE)
+set(ENABLE_ALL_WARNINGS OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(
+    JoltPhysics
+    GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
+    GIT_TAG        v5.3.0
+    SOURCE_SUBDIR  Build
+)
+
 # Download and populate dependencies
-FetchContent_MakeAvailable(SDL3)
+FetchContent_MakeAvailable(SDL3 JoltPhysics)
 
 # System dependencies
 find_package(Vulkan REQUIRED)
@@ -78,6 +94,7 @@ target_link_libraries(MyGameCommon
     PUBLIC
         SDL3::SDL3-shared
         Vulkan::Vulkan
+        Jolt
 )
 
 # ------------------------------------------------------------------------------

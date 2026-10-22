@@ -2,11 +2,15 @@
 
 ## Gameplay
 
-The 8x8 cube field is stationary and has solid collisions. Use **WASD** to walk,
+The 1000x1000 cube platform has solid Jolt Physics collisions. Use **WASD** to walk,
 **Space** to jump, **Shift** to run, and click to capture the mouse for looking
 around. Press **Esc** to release the mouse and open renderer settings. Gravity
-pulls the player onto the cubes; falling below Y = -50 returns the player to the
-starting cube.
+pulls the player onto the platform; falling below Y = -50 returns the player to
+the starting position. Nearby platform tiles are rendered as individual cubes,
+while a single equivalent Jolt box collider keeps the million-tile floor efficient.
+
+The shared `physics/physics_world.hpp` API exposes `PhysicsWorld::createCube`
+and `PhysicsWorld::createSphere` for adding positioned physics objects.
 
 Choose **1** for Vulkan or **2** for OpenGL; the menu shows the active renderer.
 Press **Esc** again to close settings.
