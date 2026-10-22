@@ -1,4 +1,5 @@
 #include "init.hpp"
+#include "launcher_page.hpp"
 
 #include <windows.h>
 #include <commctrl.h>
@@ -30,7 +31,6 @@ public:
         ultralight::Settings settings;
         settings.app_name = "MyGame Launcher";
         settings.developer_name = "MyGame";
-        settings.file_system_path = "./assets/";
         app_ = ultralight::App::Create(settings);
         if (!app_) {
             return;
@@ -55,7 +55,7 @@ public:
         app_->set_listener(this);
         window_->set_listener(this);
         overlay_->view()->set_load_listener(this);
-        overlay_->view()->LoadURL("file:///launcher/index.html");
+        overlay_->view()->LoadHTML(Launcher::page);
     }
 
     ~GameLauncher() override {

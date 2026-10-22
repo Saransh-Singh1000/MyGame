@@ -94,9 +94,6 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
-      - name: Install 7-Zip
-        run: choco install 7zip --no-progress --yes
-
       - name: Download Ultralight SDK
         shell: pwsh
         run: |

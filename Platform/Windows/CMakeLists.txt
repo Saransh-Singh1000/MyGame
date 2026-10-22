@@ -94,9 +94,6 @@ if(ULTRALIGHT_SDK_ROOT)
     target_link_libraries(MyGame PRIVATE Ultralight UltralightCore WebCore AppCore)
     add_custom_command(TARGET MyGame POST_BUILD
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                "${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher"
-                "$<TARGET_FILE_DIR:MyGame>/assets/launcher"
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory
                 "${ULTRALIGHT_BIN_DIR}"
                 "$<TARGET_FILE_DIR:MyGame>"
         COMMAND "${CMAKE_COMMAND}" -E copy_directory
