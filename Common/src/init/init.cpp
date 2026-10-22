@@ -62,6 +62,22 @@ constexpr std::array<std::array<int, 4>, 6> faceVertices{{
     {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
 }};
 
+constexpr auto makeCubeCenters() {
+    std::array<Point3D, 64> centers{};
+    for (int row = 0; row < 8; ++row) {
+        for (int column = 0; column < 8; ++column) {
+            centers[static_cast<std::size_t>(row * 8 + column)] = {
+                (static_cast<float>(column) - 3.5f) * 1.8f,
+                0.65f,
+                (static_cast<float>(row) - 3.5f) * 1.8f
+            };
+        }
+    }
+    return centers;
+}
+
+constexpr std::array<Point3D, 64> cubeCenters = makeCubeCenters();
+
 constexpr Point3D cubeHalfExtents{0.55f, 0.55f, 0.55f};
 constexpr float playerRadius = 0.25f;
 constexpr float playerHeight = 1.8f;
@@ -128,11 +144,7 @@ Point3D scale(Point3D point, float amount) {
 }
 
 Point3D cubeCenter(int row, int column) {
-    return {
-        (static_cast<float>(column) - 3.5f) * 1.8f,
-        0.65f,
-        (static_cast<float>(row) - 3.5f) * 1.8f
-    };
+    return cubeCenters[static_cast<std::size_t>(row * 8 + column)];
 }
 
 bool overlapsCubeHorizontally(Point3D position, Point3D center) {
@@ -384,7 +396,7 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
 
     for (int row = 0; row < 8; ++row) {
         for (int column = 0; column < 8; ++column) {
-            const Point3D center = cubeCenter(row, column);
+            const Point3D center = cubeCenters[static_cast<std::size_t>(row * 8 + column)];
             const Point3D cameraRelative = subtract(camera.position, center);
             const bool cullBackFaces = dot(cameraRelative, cameraRelative) > 1.0f;
 
@@ -403,13 +415,13 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
             }
 
             for (std::size_t i = 0; i < faceVertices.size(); ++i) {
-                if (cullBackFaces &&
-                    dot(faceNormals[i], cameraRelative) <= 0.0f) {
+                if (cullBackFaces && dot(faceNormals[i], cameraRelative) <= 0.0f) {
                     continue;
                 }
                 RenderFace face{};
                 face.color = faceColors[i];
                 bool visible = true;
+                float depthAccumulator = 0.0f;
                 for (std::size_t vertex = 0; vertex < face.vertices.size(); ++vertex) {
                     const int index = faceVertices[i][vertex];
                     if (depths[index] <= 0.1f) {
@@ -417,9 +429,10 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
                         break;
                     }
                     face.vertices[vertex] = projectedVertices[index];
-                    face.depth += depths[index] * 0.25f;
+                    depthAccumulator += depths[index];
                 }
                 if (visible) {
+                    face.depth = depthAccumulator * 0.25f;
                     buffers.faces.push_back(face);
                 }
             }
@@ -430,14 +443,8 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
         return left.depth > right.depth;
     });
 
-    constexpr SDL_FColor edgeColor{0.094f, 0.110f, 0.173f, 1.0f};
     for (const RenderFace& face : buffers.faces) {
         appendQuad(buffers, face.vertices, face.color);
-        for (std::size_t i = 0; i < face.vertices.size(); ++i) {
-            const Point2D from = face.vertices[i];
-            const Point2D to = face.vertices[(i + 1) % face.vertices.size()];
-            appendQuad(buffers, makeLineQuad(from, to), edgeColor);
-        }
     }
 
     appendText(buffers, fpsText, 12.0f, 12.0f, 1.5f,
