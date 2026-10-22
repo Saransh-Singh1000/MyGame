@@ -15,6 +15,16 @@ and `PhysicsWorld::createSphere` for adding positioned physics objects.
 Choose **1** for Vulkan or **2** for OpenGL; the menu shows the active renderer.
 Press **Esc** again to close settings.
 
+## Windows launcher
+
+The Windows executable opens a renderer launcher before starting the game. To use
+the HTML/CSS/JavaScript launcher, download and extract the 64-bit Ultralight SDK
+from [ultralig.ht/download](https://ultralig.ht/download), then configure CMake
+with `-DULTRALIGHT_SDK_ROOT="C:\path\to\ultralight-sdk"` or set the
+`ULTRALIGHT_SDK_ROOT` environment variable. CMake stages the launcher assets,
+Ultralight runtime binaries, and resources alongside the executable. If the SDK
+is not installed, Windows builds use a native renderer-selection dialog instead.
+
 ## Vulkan shaders
 
 The GLSL sources are in `Common/shaders`. CMake uses `glslc`, `glslangValidator`, or

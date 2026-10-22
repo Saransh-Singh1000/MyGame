@@ -3,7 +3,7 @@
 
 namespace Engine {
     // Initializes SDL, opens a window, runs the main event loop, and cleans up.
-    bool run();
+    bool run(bool useOpenGL = false);
 }
 
 #endif // INIT_HPP

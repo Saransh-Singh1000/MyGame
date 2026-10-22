@@ -379,14 +379,23 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
 
 namespace Engine {
 
-bool run() {
+bool run(bool useOpenGL) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
         return false;
     }
 
-    RendererBackend backend = RendererBackend::Vulkan;
-    const SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN;
+    RendererBackend backend =
+        useOpenGL ? RendererBackend::OpenGL : RendererBackend::Vulkan;
+    std::string rendererError;
+    if (!prepareRendererWindow(backend, rendererError)) {
+        std::cerr << "Could not prepare selected renderer: " << rendererError << std::endl;
+        SDL_Quit();
+        return false;
+    }
+    const SDL_WindowFlags windowFlags =
+        SDL_WINDOW_RESIZABLE |
+        (backend == RendererBackend::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL);
     SDL_Window* window = SDL_CreateWindow("Engine Window", 1280, 720, windowFlags);
 
     if (!window) {
@@ -396,9 +405,9 @@ bool run() {
     }
 
     std::unique_ptr<Renderer> renderer = createRenderer(backend);
-    std::string rendererError;
     if (!renderer->initialize(window, rendererError)) {
-        std::cerr << "Vulkan renderer initialization failed: " << rendererError << std::endl;
+        std::cerr << (backend == RendererBackend::Vulkan ? "Vulkan" : "OpenGL")
+                  << " renderer initialization failed: " << rendererError << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return false;
