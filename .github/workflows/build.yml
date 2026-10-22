@@ -94,6 +94,39 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
+      - name: Install 7-Zip
+        run: choco install 7zip --no-progress --yes
+
+      - name: Download Ultralight SDK
+        shell: pwsh
+        run: |
+          $sdkVersion = '1.4.0'
+          $metadata = Invoke-RestMethod `
+            -Uri "https://ultralig.ht/api/v1/sdk/download?platform=windows-x64&version=$sdkVersion&format=json"
+          if ($metadata.version -ne $sdkVersion) {
+            throw "Expected Ultralight $sdkVersion, received $($metadata.version)"
+          }
+
+          $archive = Join-Path $env:RUNNER_TEMP $metadata.filename
+          $extractDirectory = Join-Path $env:RUNNER_TEMP 'ultralight-sdk'
+          Invoke-WebRequest -Uri $metadata.url -OutFile $archive
+          New-Item -ItemType Directory -Force -Path $extractDirectory | Out-Null
+          & 7z x $archive "-o$extractDirectory" -y
+          if ($LASTEXITCODE -ne 0) {
+            throw "Could not extract Ultralight SDK (7-Zip exit code $LASTEXITCODE)"
+          }
+
+          $appCoreHeader = Get-ChildItem -Path $extractDirectory `
+            -Filter AppCore.h -File -Recurse |
+            Where-Object { $_.FullName -match '[\\/]include[\\/]AppCore[\\/]AppCore\.h$' } |
+            Select-Object -First 1
+          if (-not $appCoreHeader) {
+            throw 'The Ultralight SDK archive does not contain include/AppCore/AppCore.h'
+          }
+
+          $sdkRoot = $appCoreHeader.Directory.Parent.Parent.FullName
+          "ULTRALIGHT_SDK_ROOT=$sdkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Cache CMake Dependencies (SDL3)
         uses: actions/cache@v4
         with:
@@ -107,6 +140,7 @@ jobs:
           cmake -S . -B build -G Ninja
           -DCMAKE_C_COMPILER=clang-cl
           -DCMAKE_CXX_COMPILER=clang-cl
+          -DULTRALIGHT_SDK_ROOT="$env:ULTRALIGHT_SDK_ROOT"
 
       - name: Build
         run: cmake --build build
@@ -115,10 +149,15 @@ jobs:
         run: |
           ren Executables\Windows\MyGame.exe MyGame-Windows-${{ github.ref_name }}.exe
 
+      - name: Package
+        run: |
+          Compress-Archive -Path Executables\Windows\* `
+            -DestinationPath Executables\Windows\MyGame-Windows-${{ github.ref_name }}.zip
+
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Executables\Windows\MyGame-Windows-${{ github.ref_name }}.exe
+          files: Executables\Windows\MyGame-Windows-${{ github.ref_name }}.zip
 
   linux:
     runs-on: ubuntu-latest

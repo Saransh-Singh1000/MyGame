@@ -10,20 +10,22 @@ the starting position. Nearby platform tiles are rendered as individual cubes,
 while a single equivalent Jolt box collider keeps the million-tile floor efficient.
 
 The shared `physics/physics_world.hpp` API exposes `PhysicsWorld::createCube`
-and `PhysicsWorld::createSphere` for adding positioned physics objects.
+and `PhysicsWorld::createSphere` for adding positioned physics objects. For many
+stationary cubes, `PhysicsWorld::createStaticCubeBatch` combines them into one
+Jolt static body; all cubes in that batch share its `BodyHandle`.
 
 Choose **1** for Vulkan or **2** for OpenGL; the menu shows the active renderer.
 Press **Esc** again to close settings.
 
 ## Windows launcher
 
-The Windows executable opens a renderer launcher before starting the game. To use
-the HTML/CSS/JavaScript launcher, download and extract the 64-bit Ultralight SDK
-from [ultralig.ht/download](https://ultralig.ht/download), then configure CMake
-with `-DULTRALIGHT_SDK_ROOT="C:\path\to\ultralight-sdk"` or set the
-`ULTRALIGHT_SDK_ROOT` environment variable. CMake stages the launcher assets,
-Ultralight runtime binaries, and resources alongside the executable. If the SDK
-is not installed, Windows builds use a native renderer-selection dialog instead.
+The Windows release ZIP includes the HTML/CSS/JavaScript renderer launcher and
+Ultralight runtime. The release workflow downloads the 64-bit Ultralight 1.4.0
+SDK while building. For local Windows builds, download and extract the SDK from
+[ultralig.ht/download](https://ultralig.ht/download), then configure CMake with
+`-DULTRALIGHT_SDK_ROOT="C:\path\to\ultralight-sdk"` or set the
+`ULTRALIGHT_SDK_ROOT` environment variable. Builds without the SDK use a native
+renderer-selection dialog instead.
 
 ## Vulkan shaders
 

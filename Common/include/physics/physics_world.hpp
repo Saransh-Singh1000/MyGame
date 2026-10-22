@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 
 namespace Physics {
 
@@ -41,6 +42,8 @@ public:
 
     bool initialize();
     Cube createCube(Vector3 position, Vector3 halfExtents = {0.5f, 0.5f, 0.5f});
+    BodyHandle createStaticCubeBatch(std::span<const Vector3> positions,
+                                    Vector3 halfExtents = {0.5f, 0.5f, 0.5f});
     Sphere createSphere(Vector3 position, float radius = 0.5f);
     void createPlayer(Vector3 eyePosition);
     void setPlayerMovement(Vector3 horizontalVelocity, bool jump);

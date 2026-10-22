@@ -306,12 +306,32 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     const int lastColumn = std::min(platformTileCount - 1, centerColumn + renderRadius);
     const int firstRow = std::max(0, centerRow - renderRadius);
     const int lastRow = std::min(platformTileCount - 1, centerRow + renderRadius);
+    constexpr float cubeBoundingRadius = 0.85f;
 
     for (int row = firstRow; row <= lastRow; ++row) {
         for (int column = firstColumn; column <= lastColumn; ++column) {
             const Point3D center{static_cast<float>(column) - 499.5f, 0.7f,
                                  static_cast<float>(row) - 499.5f};
             const Point3D cameraRelative = subtract(camera.position, center);
+            const Point3D centerRelative = subtract(center, camera.position);
+            const float centerDepth = dot(centerRelative, basis.forward);
+            if (centerDepth <= -cubeBoundingRadius) {
+                continue;
+            }
+            if (centerDepth > cubeBoundingRadius) {
+                const float projectedRadius =
+                    focalLength * cubeBoundingRadius / (centerDepth - cubeBoundingRadius);
+                const float projectedCenterX =
+                    centerX + dot(centerRelative, basis.right) * focalLength / centerDepth;
+                const float projectedCenterY =
+                    centerY - dot(centerRelative, basis.up) * focalLength / centerDepth;
+                if (projectedCenterX + projectedRadius < 0.0f ||
+                    projectedCenterX - projectedRadius > static_cast<float>(width) ||
+                    projectedCenterY + projectedRadius < 0.0f ||
+                    projectedCenterY - projectedRadius > static_cast<float>(height)) {
+                    continue;
+                }
+            }
             const bool cullBackFaces = dot(cameraRelative, cameraRelative) > 1.0f;
 
             std::array<Point2D, 8> projectedVertices{};

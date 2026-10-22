@@ -10,6 +10,7 @@
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/StaticCompoundShape.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
 #include <algorithm>
@@ -197,6 +198,41 @@ Cube PhysicsWorld::createCube(Vector3 position, Vector3 halfExtents) {
     const JPH::BodyID bodyId = impl_->addBody(shape.GetPtr(), position,
                                               JPH::EMotionType::Static, false);
     return {{bodyId.GetIndexAndSequenceNumber()}, position, halfExtents};
+}
+
+BodyHandle PhysicsWorld::createStaticCubeBatch(std::span<const Vector3> positions,
+                                               Vector3 halfExtents) {
+    if (positions.empty()) {
+        throw std::invalid_argument("A static cube batch must contain at least one cube");
+    }
+    if (halfExtents.x <= 0.0f || halfExtents.y <= 0.0f || halfExtents.z <= 0.0f) {
+        throw std::invalid_argument("Cube half-extents must be positive");
+    }
+
+    const Vector3 origin = positions.front();
+    const JPH::RefConst<JPH::Shape> boxShape =
+        new JPH::BoxShape(JPH::Vec3(halfExtents.x, halfExtents.y, halfExtents.z));
+    JPH::StaticCompoundShapeSettings compoundSettings;
+    for (const Vector3 position : positions) {
+        compoundSettings.AddShape(
+            JPH::Vec3(position.x - origin.x, position.y - origin.y, position.z - origin.z),
+            JPH::Quat::sIdentity(), boxShape.GetPtr());
+    }
+
+    JPH::Shape::ShapeResult shapeResult = compoundSettings.Create();
+    if (!shapeResult.IsValid()) {
+        throw std::runtime_error(shapeResult.HasError()
+                                     ? shapeResult.GetError().c_str()
+                                     : "Jolt could not create a static cube batch");
+    }
+    const JPH::RefConst<JPH::Shape> shape = shapeResult.Get();
+    const JPH::Vec3 centerOfMass = shape->GetCenterOfMass();
+    const Vector3 bodyPosition{origin.x + centerOfMass.GetX(),
+                               origin.y + centerOfMass.GetY(),
+                               origin.z + centerOfMass.GetZ()};
+    const JPH::BodyID bodyId =
+        impl_->addBody(shape.GetPtr(), bodyPosition, JPH::EMotionType::Static, false);
+    return {bodyId.GetIndexAndSequenceNumber()};
 }
 
 Sphere PhysicsWorld::createSphere(Vector3 position, float radius) {

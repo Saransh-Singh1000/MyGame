@@ -20,7 +20,7 @@ include(FetchContent)
 
 set(ULTRALIGHT_SDK_ROOT "$ENV{ULTRALIGHT_SDK_ROOT}" CACHE PATH
     "Path to the extracted Ultralight SDK (download from https://ultralig.ht/download)")
-if(NOT ULTRALIGHT_SDK_ROOT AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/SDK/README.md")
+if(NOT ULTRALIGHT_SDK_ROOT AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/SDK/include/AppCore/AppCore.h")
     set(ULTRALIGHT_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/SDK")
 endif()
 
