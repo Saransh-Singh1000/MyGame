@@ -2,6 +2,7 @@
 
 namespace Launcher {
 
+// Shared launcher markup and behavior for platform-specific hosts.
 inline constexpr char page[] = R"MYGAME_LAUNCHER(
 <!doctype html>
 <html lang="en">

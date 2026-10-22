@@ -64,7 +64,11 @@ target_link_libraries(MyGame PRIVATE
 
 if(ULTRALIGHT_SDK_ROOT)
     set(ULTRALIGHT_INCLUDE_DIR "${ULTRALIGHT_SDK_ROOT}/include")
-    set(ULTRALIGHT_LIB_DIR "${ULTRALIGHT_SDK_ROOT}/lib/win/x64")
+    if(EXISTS "${ULTRALIGHT_SDK_ROOT}/lib/Ultralight.lib")
+        set(ULTRALIGHT_LIB_DIR "${ULTRALIGHT_SDK_ROOT}/lib")
+    else()
+        set(ULTRALIGHT_LIB_DIR "${ULTRALIGHT_SDK_ROOT}/lib/win/x64")
+    endif()
     set(ULTRALIGHT_BIN_DIR "${ULTRALIGHT_SDK_ROOT}/bin")
     foreach(required_file
         "${ULTRALIGHT_INCLUDE_DIR}/AppCore/AppCore.h"

@@ -1,5 +1,5 @@
 #include "init.hpp"
-#include "launcher_page.hpp"
+#include "launcher/launcher_page.hpp"
 
 #include <windows.h>
 #include <commctrl.h>

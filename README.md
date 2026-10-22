@@ -19,11 +19,11 @@ Press **Esc** again to close settings.
 
 ## Windows launcher
 
-The HTML, CSS, and JavaScript for the Windows renderer launcher are embedded in
-`Platform/Windows/src/launcher_page.hpp`, so no separate web files are needed at
-runtime. The Windows release ZIP includes the Ultralight runtime. The release
-workflow downloads the 64-bit Ultralight 1.4.0 SDK while building. For local
-Windows builds, download and extract the SDK from
+The shared launcher page (HTML, CSS, and JavaScript) is embedded in
+`Common/include/launcher/launcher_page.hpp` for platform-specific launcher hosts
+to reuse. The Windows release ZIP includes the Ultralight runtime, and the
+Windows release workflow downloads the 64-bit Ultralight 1.4.0 SDK while
+building. For local Windows builds, download and extract the SDK from
 [ultralig.ht/download](https://ultralig.ht/download), then configure CMake with
 `-DULTRALIGHT_SDK_ROOT="C:\path\to\ultralight-sdk"` or set the
 `ULTRALIGHT_SDK_ROOT` environment variable. Builds without the SDK use a native
