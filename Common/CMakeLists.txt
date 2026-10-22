@@ -26,5 +26,11 @@ target_link_libraries(MyGameCommon
         Vulkan::Vulkan
 )
 
+if(NOT ANDROID)
+    find_package(OpenGL REQUIRED)
+    target_link_libraries(MyGameCommon PUBLIC OpenGL::GL)
+    target_compile_definitions(MyGameCommon PRIVATE MYGAME_ENABLE_OPENGL=1)
+endif()
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VulkanShaders.cmake")
 mygame_embed_vulkan_shaders(MyGameCommon)

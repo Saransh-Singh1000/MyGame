@@ -3,9 +3,13 @@
 ## Gameplay
 
 The 8x8 cube field is stationary and has solid collisions. Use **WASD** to walk,
-**Space** to jump, **Shift** to run, click to capture the mouse for looking around,
-and **Esc** to release the mouse. Gravity pulls the player onto the cubes; falling
-below Y = -50 returns the player to the starting cube.
+**Space** to jump, **Shift** to run, and click to capture the mouse for looking
+around. Press **Esc** to release the mouse and open renderer settings. Gravity
+pulls the player onto the cubes; falling below Y = -50 returns the player to the
+starting cube.
+
+Choose **1** for Vulkan or **2** for OpenGL; the menu shows the active renderer.
+Press **Esc** again to close settings.
 
 ## Vulkan shaders
 

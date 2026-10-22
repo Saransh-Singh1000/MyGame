@@ -4,32 +4,24 @@
 #include <SDL3/SDL.h>
 #include <vulkan/vulkan.h>
 #include <SDL3/SDL_vulkan.h>
+#include "renderer/renderer.hpp"
 #include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
 
-struct VulkanVertex {
-    float x;
-    float y;
-    float r;
-    float g;
-    float b;
-    float a;
-};
-
-class VulkanRenderer {
+class VulkanRenderer final : public Renderer {
 public:
     VulkanRenderer() = default;
-    ~VulkanRenderer();
+    ~VulkanRenderer() override;
 
     VulkanRenderer(const VulkanRenderer&) = delete;
     VulkanRenderer& operator=(const VulkanRenderer&) = delete;
 
-    bool initialize(SDL_Window* window, std::string& error);
+    bool initialize(SDL_Window* window, std::string& error) override;
     bool render(const std::vector<VulkanVertex>& vertices, const std::vector<std::uint32_t>& indices,
-                std::string& error);
-    void shutdown();
+                std::string& error) override;
+    void shutdown() override;
 
 private:
     struct Buffer {

@@ -1,4 +1,6 @@
 #include "init.hpp"
+#include "renderer/opengl_renderer.hpp"
+#include "renderer/renderer.hpp"
 #include "renderer/vulkan_renderer.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -6,7 +8,9 @@
 #include <cmath>
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -104,6 +108,37 @@ struct SceneBuffers {
         indices.reserve(8 * 8 * faceVertices.size() * 5 * 6);
     }
 };
+
+enum class RendererBackend {
+    Vulkan,
+    OpenGL
+};
+
+#if defined(MYGAME_ENABLE_OPENGL) && MYGAME_ENABLE_OPENGL
+constexpr bool openGLAvailable = true;
+#else
+constexpr bool openGLAvailable = false;
+#endif
+
+bool prepareRendererWindow(RendererBackend backend, std::string& error) {
+    if (backend == RendererBackend::Vulkan) {
+        return true;
+    }
+    if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2) != 0 ||
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1) != 0 ||
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1) != 0) {
+        error = std::string("SDL_GL_SetAttribute failed: ") + SDL_GetError();
+        return false;
+    }
+    return true;
+}
+
+std::unique_ptr<Renderer> createRenderer(RendererBackend backend) {
+    if (backend == RendererBackend::OpenGL) {
+        return std::make_unique<OpenGLRenderer>();
+    }
+    return std::make_unique<VulkanRenderer>();
+}
 
 constexpr std::array<SDL_FColor, 6> faceColors{{
     {0.92f, 0.33f, 0.33f, 1.0f}, {0.29f, 0.75f, 0.92f, 1.0f},
@@ -385,7 +420,9 @@ std::array<Point2D, 4> makeLineQuad(Point2D from, Point2D to) {
 }
 
 void renderScene(int width, int height, const Camera& camera, const CameraBasis& basis,
-                 const char* fpsText, SceneBuffers& buffers) {
+                 const char* fpsText, bool settingsOpen, bool canSelectOpenGL,
+                 const char* activeRenderer,
+                 SceneBuffers& buffers) {
     const float focalLength = static_cast<float>(std::min(width, height)) * 0.8f;
     const float centerX = static_cast<float>(width) * 0.5f;
     const float centerY = static_cast<float>(height) * 0.5f;
@@ -450,8 +487,16 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     appendText(buffers, fpsText, 12.0f, 12.0f, 1.5f,
                {0.94f, 0.96f, 1.0f, 1.0f});
     appendText(buffers,
-               "WASD MOVE | SPACE JUMP | SHIFT RUN | CLICK LOOK | ESC UNLOCK",
+               "WASD MOVE | SPACE JUMP | SHIFT RUN | CLICK LOOK | ESC SETTINGS",
                12.0f, 28.0f, 1.0f, {0.94f, 0.96f, 1.0f, 1.0f});
+    if (settingsOpen) {
+        appendText(buffers, canSelectOpenGL
+                                ? "SETTINGS\n1 VULKAN\n2 OPENGL\nESC CLOSE"
+                                : "SETTINGS\n1 VULKAN\nESC CLOSE",
+                   12.0f, 48.0f, 1.5f, {0.94f, 0.96f, 1.0f, 1.0f});
+        appendText(buffers, activeRenderer, 12.0f, 118.0f, 1.5f,
+                   {0.37f, 0.80f, 0.49f, 1.0f});
+    }
 }
 
 } // namespace
@@ -464,11 +509,9 @@ bool run() {
         return false;
     }
 
-    SDL_Window* window = SDL_CreateWindow(
-        "Engine Window",
-        1280, 720,
-        SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN
-    );
+    RendererBackend backend = RendererBackend::Vulkan;
+    const SDL_WindowFlags windowFlags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN;
+    SDL_Window* window = SDL_CreateWindow("Engine Window", 1280, 720, windowFlags);
 
     if (!window) {
         std::cerr << "SDL_CreateWindow Error: " << SDL_GetError() << std::endl;
@@ -476,9 +519,9 @@ bool run() {
         return false;
     }
 
-    VulkanRenderer renderer;
+    std::unique_ptr<Renderer> renderer = createRenderer(backend);
     std::string rendererError;
-    if (!renderer.initialize(window, rendererError)) {
+    if (!renderer->initialize(window, rendererError)) {
         std::cerr << "Vulkan renderer initialization failed: " << rendererError << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
@@ -488,6 +531,7 @@ bool run() {
     bool isRunning = true;
     bool succeeded = true;
     bool mouseCaptured = false;
+    bool settingsOpen = false;
     SDL_Event event;
     const std::uint64_t performanceFrequency = SDL_GetPerformanceFrequency();
     const std::uint64_t startTime = SDL_GetPerformanceCounter();
@@ -501,11 +545,58 @@ bool run() {
     constexpr float mouseSensitivity = 0.0025f;
     bool jumpPressed = false;
 
+    auto switchRenderer = [&](RendererBackend nextBackend) {
+        if (nextBackend == backend) {
+            settingsOpen = false;
+            return;
+        }
+        if (!prepareRendererWindow(nextBackend, rendererError)) {
+            std::cerr << "Could not prepare renderer window: " << rendererError << std::endl;
+            return;
+        }
+
+        const SDL_WindowFlags nextWindowFlags =
+            SDL_WINDOW_RESIZABLE |
+            (nextBackend == RendererBackend::Vulkan ? SDL_WINDOW_VULKAN : SDL_WINDOW_OPENGL);
+        SDL_Window* nextWindow =
+            SDL_CreateWindow("Engine Window", 1280, 720, nextWindowFlags);
+        if (!nextWindow) {
+            std::cerr << "Could not create renderer window: " << SDL_GetError() << std::endl;
+            return;
+        }
+
+        std::unique_ptr<Renderer> nextRenderer = createRenderer(nextBackend);
+        if (!nextRenderer->initialize(nextWindow, rendererError)) {
+            std::cerr << "Could not initialize selected renderer: " << rendererError << std::endl;
+            nextRenderer->shutdown();
+            SDL_DestroyWindow(nextWindow);
+            return;
+        }
+
+        if (mouseCaptured) {
+            if (!SDL_SetWindowRelativeMouseMode(window, false)) {
+                std::cerr << "Could not release mouse: " << SDL_GetError() << std::endl;
+            }
+            mouseCaptured = false;
+        }
+        renderer->shutdown();
+        renderer = std::move(nextRenderer);
+        SDL_DestroyWindow(window);
+        window = nextWindow;
+        backend = nextBackend;
+        settingsOpen = false;
+        previousFrame = SDL_GetPerformanceCounter();
+        fpsUpdateTime = previousFrame;
+        fpsFrameCount = 0;
+        fpsText = "FPS: 0";
+    };
+
     while (isRunning) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
                 isRunning = false;
-            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !mouseCaptured) {
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !mouseCaptured &&
+                       !settingsOpen) {
                 mouseCaptured = SDL_SetWindowRelativeMouseMode(window, true);
                 if (!mouseCaptured) {
                     std::cerr << "Could not capture mouse: " << SDL_GetError() << std::endl;
@@ -514,14 +605,27 @@ bool run() {
                 camera.yaw += event.motion.xrel * mouseSensitivity;
                 camera.pitch = std::clamp(camera.pitch - event.motion.yrel * mouseSensitivity,
                                           -1.5f, 1.5f);
-            } else if (event.type == SDL_EVENT_KEY_DOWN &&
-                       event.key.scancode == SDL_SCANCODE_ESCAPE && mouseCaptured) {
-                if (SDL_SetWindowRelativeMouseMode(window, false)) {
-                    mouseCaptured = false;
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       event.key.scancode == SDL_SCANCODE_ESCAPE) {
+                if (mouseCaptured) {
+                    if (SDL_SetWindowRelativeMouseMode(window, false)) {
+                        mouseCaptured = false;
+                        settingsOpen = true;
+                    } else {
+                        std::cerr << "Could not release mouse: " << SDL_GetError() << std::endl;
+                    }
                 } else {
-                    std::cerr << "Could not release mouse: " << SDL_GetError() << std::endl;
+                    settingsOpen = !settingsOpen;
                 }
-            } else if (event.type == SDL_EVENT_KEY_DOWN &&
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat && settingsOpen &&
+                       event.key.scancode == SDL_SCANCODE_1) {
+                switchRenderer(RendererBackend::Vulkan);
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat && settingsOpen &&
+                       event.key.scancode == SDL_SCANCODE_2) {
+                if (openGLAvailable) {
+                    switchRenderer(RendererBackend::OpenGL);
+                }
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !settingsOpen &&
                        event.key.scancode == SDL_SCANCODE_SPACE && !event.key.repeat) {
                 jumpPressed = true;
             }
@@ -538,8 +642,10 @@ bool run() {
             0.1f);
         previousFrame = now;
         const CameraBasis cameraBasis = makeCameraBasis(camera);
-        movePlayer(camera, playerPhysics, SDL_GetKeyboardState(nullptr),
-                   jumpPressed, deltaTime);
+        if (!settingsOpen) {
+            movePlayer(camera, playerPhysics, SDL_GetKeyboardState(nullptr),
+                       jumpPressed, deltaTime);
+        }
         jumpPressed = false;
 
         ++fpsFrameCount;
@@ -561,9 +667,12 @@ bool run() {
             break;
         }
         if (width > 0 && height > 0) {
-            renderScene(width, height, camera, cameraBasis, fpsText.c_str(), sceneBuffers);
-            if (!renderer.render(sceneBuffers.vertices, sceneBuffers.indices, rendererError)) {
-                std::cerr << "Vulkan frame rendering failed: " << rendererError << std::endl;
+            const char* activeRenderer =
+                backend == RendererBackend::Vulkan ? "ACTIVE VULKAN" : "ACTIVE OPENGL";
+            renderScene(width, height, camera, cameraBasis, fpsText.c_str(), settingsOpen,
+                        openGLAvailable, activeRenderer, sceneBuffers);
+            if (!renderer->render(sceneBuffers.vertices, sceneBuffers.indices, rendererError)) {
+                std::cerr << "Frame rendering failed: " << rendererError << std::endl;
                 succeeded = false;
                 break;
             }
@@ -573,7 +682,7 @@ bool run() {
     if (mouseCaptured) {
         SDL_SetWindowRelativeMouseMode(window, false);
     }
-    renderer.shutdown();
+    renderer->shutdown();
     SDL_DestroyWindow(window);
     SDL_Quit();
     return succeeded;
