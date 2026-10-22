@@ -47,8 +47,7 @@ bool findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface,
     bool hasGraphics = false;
     bool hasPresent = false;
     for (std::uint32_t i = 0; i < count; ++i) {
-        const bool supportsGraphics = (families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
-        if (supportsGraphics) {
+        if ((families[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
             graphicsFamily = i;
             hasGraphics = true;
         }
@@ -58,13 +57,11 @@ bool findQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface,
             presentFamily = i;
             hasPresent = true;
         }
-        if (supportsGraphics && supportsPresent == VK_TRUE) {
-            graphicsFamily = i;
-            presentFamily = i;
+        if (hasGraphics && hasPresent) {
             return true;
         }
     }
-    return hasGraphics && hasPresent;
+    return false;
 }
 
 bool hasSwapchainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) {
@@ -146,55 +143,21 @@ bool VulkanRenderer::selectPhysicalDevice(std::string& error) {
         return false;
     }
 
-    std::int64_t bestScore = std::numeric_limits<std::int64_t>::min();
-    std::uint32_t bestGraphicsFamily = 0;
-    std::uint32_t bestPresentFamily = 0;
     for (const VkPhysicalDevice candidate : devices) {
         std::uint32_t graphicsFamily = 0;
         std::uint32_t presentFamily = 0;
         if (findQueueFamilies(candidate, surface_, graphicsFamily, presentFamily) &&
             hasDeviceExtension(candidate, deviceExtensions[0]) &&
             hasSwapchainSupport(candidate, surface_)) {
-            VkPhysicalDeviceProperties properties{};
-            vkGetPhysicalDeviceProperties(candidate, &properties);
-            std::int64_t score = 0;
-            switch (properties.deviceType) {
-            case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-                score = 10000;
-                break;
-            case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                score = 5000;
-                break;
-            case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-                score = 3000;
-                break;
-            case VK_PHYSICAL_DEVICE_TYPE_CPU:
-                score = 1000;
-                break;
-            default:
-                break;
-            }
-            score += static_cast<std::int64_t>(
-                std::min(properties.limits.maxImageDimension2D, 8192u) / 1024u);
-            if (graphicsFamily == presentFamily) {
-                score += 100;
-            }
-            if (score > bestScore) {
-                physicalDevice_ = candidate;
-                bestGraphicsFamily = graphicsFamily;
-                bestPresentFamily = presentFamily;
-                bestScore = score;
-            }
+            physicalDevice_ = candidate;
+            graphicsFamily_ = graphicsFamily;
+            presentFamily_ = presentFamily;
+            return true;
         }
     }
 
-    if (physicalDevice_ == VK_NULL_HANDLE) {
-        error = "No Vulkan GPU supports graphics, presentation, and swapchains";
-        return false;
-    }
-    graphicsFamily_ = bestGraphicsFamily;
-    presentFamily_ = bestPresentFamily;
-    return true;
+    error = "No Vulkan GPU supports graphics, presentation, and swapchains";
+    return false;
 }
 
 bool VulkanRenderer::createLogicalDevice(std::string& error) {
@@ -625,15 +588,9 @@ bool VulkanRenderer::ensureBuffer(Buffer& buffer, VkDeviceSize requiredSize,
     if (requiredSize == 0 || buffer.capacity >= requiredSize) {
         return true;
     }
-    const VkDeviceSize previousCapacity = buffer.capacity;
-    VkDeviceSize bufferSize = requiredSize;
-    if (previousCapacity > 0 &&
-        previousCapacity <= std::numeric_limits<VkDeviceSize>::max() / 2) {
-        bufferSize = std::max(requiredSize, previousCapacity * 2);
-    }
     destroyBuffer(buffer);
     VkBufferCreateInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferInfo.size = bufferSize;
+    bufferInfo.size = requiredSize;
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     VkResult result = vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer.handle);
@@ -674,7 +631,7 @@ bool VulkanRenderer::ensureBuffer(Buffer& buffer, VkDeviceSize requiredSize,
         destroyBuffer(buffer);
         return false;
     }
-    buffer.capacity = bufferSize;
+    buffer.capacity = requiredSize;
     return true;
 }
 

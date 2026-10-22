@@ -7,7 +7,6 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -485,9 +484,7 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
         appendQuad(buffers, face.vertices, face.color);
     }
 
-    const float fpsTextWidth = static_cast<float>(std::strlen(fpsText)) * 9.0f;
-    const float fpsTextX = std::max(12.0f, static_cast<float>(width) - 12.0f - fpsTextWidth);
-    appendText(buffers, fpsText, fpsTextX, 12.0f, 1.5f,
+    appendText(buffers, fpsText, 12.0f, 12.0f, 1.5f,
                {0.94f, 0.96f, 1.0f, 1.0f});
     appendText(buffers,
                "WASD MOVE | SPACE JUMP | SHIFT RUN | CLICK LOOK | ESC SETTINGS",
