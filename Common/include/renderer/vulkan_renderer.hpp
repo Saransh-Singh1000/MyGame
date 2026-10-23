@@ -12,13 +12,13 @@
 
 class VulkanRenderer final : public Renderer {
 public:
-    VulkanRenderer() = default;
+    explicit VulkanRenderer(bool verticalSync = true) : verticalSync_(verticalSync) {}
     ~VulkanRenderer() override;
 
     VulkanRenderer(const VulkanRenderer&) = delete;
     VulkanRenderer& operator=(const VulkanRenderer&) = delete;
 
-    bool initialize(SDL_Window* window, std::string& error) override;
+    bool initialize(SDL_Window* window, std::string& error, bool verticalSync) override;
     bool render(const std::vector<VulkanVertex>& vertices, const std::vector<std::uint32_t>& indices,
                 std::string& error) override;
     void shutdown() override;
@@ -81,6 +81,7 @@ private:
     std::array<Frame, framesInFlight> frames_{};
     std::uint32_t currentFrame_ = 0;
     bool swapchainDirty_ = false;
+    bool verticalSync_ = true;
 };
 
 #endif

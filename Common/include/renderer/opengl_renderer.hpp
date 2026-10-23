@@ -14,7 +14,7 @@ public:
     OpenGLRenderer(const OpenGLRenderer&) = delete;
     OpenGLRenderer& operator=(const OpenGLRenderer&) = delete;
 
-    bool initialize(SDL_Window* window, std::string& error) override;
+    bool initialize(SDL_Window* window, std::string& error, bool verticalSync) override;
     bool render(const std::vector<VulkanVertex>& vertices,
                 const std::vector<std::uint32_t>& indices,
                 std::string& error) override;

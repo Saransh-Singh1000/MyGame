@@ -79,8 +79,9 @@ VulkanRenderer::~VulkanRenderer() {
     shutdown();
 }
 
-bool VulkanRenderer::initialize(SDL_Window* window, std::string& error) {
+bool VulkanRenderer::initialize(SDL_Window* window, std::string& error, bool verticalSync) {
     window_ = window;
+    verticalSync_ = verticalSync;
     if (!createInstance(error)) {
         shutdown();
         return false;
@@ -242,7 +243,16 @@ bool VulkanRenderer::createSwapchain(std::string& error) {
         error = vulkanError("vkGetPhysicalDeviceSurfacePresentModesKHR", result);
         return false;
     }
-    const VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    if (!verticalSync_ &&
+        std::find(presentModes.begin(), presentModes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) !=
+            presentModes.end()) {
+        presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    } else if (!verticalSync_ &&
+               std::find(presentModes.begin(), presentModes.end(), VK_PRESENT_MODE_MAILBOX_KHR) !=
+                   presentModes.end()) {
+        presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+    }
 
     if (capabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max()) {
         swapchainExtent_ = capabilities.currentExtent;
@@ -451,6 +461,13 @@ bool VulkanRenderer::createPipeline(std::string& error) {
     multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineColorBlendAttachmentState blendAttachment{};
+    blendAttachment.blendEnable = VK_TRUE;
+    blendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    blendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    blendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    blendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    blendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    blendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
     blendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     VkPipelineColorBlendStateCreateInfo colorBlending{

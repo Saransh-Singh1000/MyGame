@@ -11,7 +11,7 @@ OpenGLRenderer::~OpenGLRenderer() {
     shutdown();
 }
 
-bool OpenGLRenderer::initialize(SDL_Window* window, std::string& error) {
+bool OpenGLRenderer::initialize(SDL_Window* window, std::string& error, bool verticalSync) {
 #if defined(MYGAME_ENABLE_OPENGL) && MYGAME_ENABLE_OPENGL
     window_ = window;
     context_ = SDL_GL_CreateContext(window_);
@@ -25,18 +25,20 @@ bool OpenGLRenderer::initialize(SDL_Window* window, std::string& error) {
         shutdown();
         return false;
     }
-    if (!SDL_GL_SetSwapInterval(1)) {
+    if (!SDL_GL_SetSwapInterval(verticalSync ? 1 : 0)) {
         SDL_LogWarn(SDL_LOG_CATEGORY_RENDER,
-                    "Could not enable OpenGL vertical synchronization: %s", SDL_GetError());
+                    "Could not set OpenGL vertical synchronization: %s", SDL_GetError());
     }
 
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
-    glDisable(GL_BLEND);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0.055f, 0.071f, 0.125f, 1.0f);
     return true;
 #else
     static_cast<void>(window);
+    static_cast<void>(verticalSync);
     error = "OpenGL rendering is unavailable on this platform";
     return false;
 #endif

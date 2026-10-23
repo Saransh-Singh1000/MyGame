@@ -19,7 +19,7 @@ class Renderer {
 public:
     virtual ~Renderer() = default;
 
-    virtual bool initialize(SDL_Window* window, std::string& error) = 0;
+    virtual bool initialize(SDL_Window* window, std::string& error, bool verticalSync) = 0;
     virtual bool render(const std::vector<VulkanVertex>& vertices,
                         const std::vector<std::uint32_t>& indices,
                         std::string& error) = 0;

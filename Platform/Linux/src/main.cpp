@@ -1,9 +1,13 @@
 #include "init.hpp"
 
+#include <string_view>
+
 int main(int argc, char* argv[]) {
-    // Hand over control to Common/src/init/init.cpp
-    if (!Engine::run()) {
-        return -1;
+    bool verticalSync = true;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string_view(argv[i]) == "--uncapped") {
+            verticalSync = false;
+        }
     }
-    return 0;
+    return Engine::run(false, verticalSync) ? 0 : 1;
 }

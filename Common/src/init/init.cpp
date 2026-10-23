@@ -3,14 +3,17 @@
 #include "renderer/opengl_renderer.hpp"
 #include "renderer/renderer.hpp"
 #include "renderer/vulkan_renderer.hpp"
+#include "world/voxel_world.hpp"
 #include <SDL3/SDL.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -45,45 +48,28 @@ struct CameraBasis {
     Point3D up;
 };
 
-constexpr std::array<Point3D, 8> cubeVertices{{
-    {-0.49f, -0.5f, -0.49f},
-    { 0.49f, -0.5f, -0.49f},
-    { 0.49f,  0.5f, -0.49f},
-    {-0.49f,  0.5f, -0.49f},
-    {-0.49f, -0.5f,  0.49f},
-    { 0.49f, -0.5f,  0.49f},
-    { 0.49f,  0.5f,  0.49f},
-    {-0.49f,  0.5f,  0.49f}
-}};
-
 constexpr std::array<std::array<int, 4>, 6> faceVertices{{
     {{0, 1, 2, 3}}, {{4, 7, 6, 5}},
     {{0, 4, 5, 1}}, {{3, 2, 6, 7}},
     {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
 }};
 
-constexpr float fallThreshold = -50.0f;
 constexpr float playerEyeHeight = 1.65f;
-constexpr Point3D spawnPosition{-0.9f, 2.85f, -6.3f};
-
-constexpr std::array<Point3D, 6> faceNormals{{
-    {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f, 1.0f},
-    {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
-    {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}
-}};
+constexpr float fallThreshold = -30.0f;
 
 struct SceneBuffers {
     std::vector<RenderFace> faces;
+    std::vector<const World::Face*> sourceFaces;
     std::vector<VulkanVertex> vertices;
     std::vector<std::uint32_t> indices;
 
     SceneBuffers() {
         faces.reserve(4225 * faceVertices.size());
+        sourceFaces.reserve(32768);
         vertices.reserve(4225 * faceVertices.size() * 4);
         indices.reserve(4225 * faceVertices.size() * 6);
     }
 };
-
 enum class RendererBackend {
     Vulkan,
     OpenGL
@@ -108,18 +94,12 @@ bool prepareRendererWindow(RendererBackend backend, std::string& error) {
     return true;
 }
 
-std::unique_ptr<Renderer> createRenderer(RendererBackend backend) {
+std::unique_ptr<Renderer> createRenderer(RendererBackend backend, bool verticalSync) {
     if (backend == RendererBackend::OpenGL) {
         return std::make_unique<OpenGLRenderer>();
     }
-    return std::make_unique<VulkanRenderer>();
+    return std::make_unique<VulkanRenderer>(verticalSync);
 }
-
-constexpr std::array<SDL_FColor, 6> faceColors{{
-    {0.92f, 0.33f, 0.33f, 1.0f}, {0.29f, 0.75f, 0.92f, 1.0f},
-    {0.37f, 0.80f, 0.49f, 1.0f}, {0.96f, 0.75f, 0.27f, 1.0f},
-    {0.65f, 0.45f, 0.92f, 1.0f}, {0.94f, 0.47f, 0.73f, 1.0f}
-}};
 
 CameraBasis makeCameraBasis(const Camera& camera) {
     const float sinYaw = std::sin(camera.yaw);
@@ -153,12 +133,9 @@ Point3D scale(Point3D point, float amount) {
     return {point.x * amount, point.y * amount, point.z * amount};
 }
 
-void movePlayer(Physics::PhysicsWorld& physics, Camera& camera, const bool* keys,
-                bool jumpPressed, float deltaTime) {
-    const float forwardAmount = static_cast<float>(keys[SDL_SCANCODE_W]) -
-                                static_cast<float>(keys[SDL_SCANCODE_S]);
-    const float rightAmount = static_cast<float>(keys[SDL_SCANCODE_D]) -
-                              static_cast<float>(keys[SDL_SCANCODE_A]);
+void movePlayer(Physics::PhysicsWorld& physics, Camera& camera, float forwardAmount,
+                float rightAmount, bool sprint, bool jumpPressed, float deltaTime,
+                World::VoxelWorld& world) {
     const float sinYaw = std::sin(camera.yaw);
     const float cosYaw = std::cos(camera.yaw);
     Point3D movement{
@@ -167,9 +144,7 @@ void movePlayer(Physics::PhysicsWorld& physics, Camera& camera, const bool* keys
         cosYaw * forwardAmount - sinYaw * rightAmount
     };
     const float movementLength = std::sqrt(dot(movement, movement));
-    const float speed = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT]
-                            ? 8.5f
-                            : 5.0f;
+    const float speed = sprint ? 8.5f : 5.0f;
     if (movementLength > 0.0f) {
         movement = scale(movement, speed / movementLength);
     }
@@ -179,8 +154,11 @@ void movePlayer(Physics::PhysicsWorld& physics, Camera& camera, const bool* keys
     camera.position = {playerPosition.x, playerPosition.y, playerPosition.z};
 
     if (camera.position.y - playerEyeHeight < fallThreshold) {
-        physics.resetPlayer({spawnPosition.x, spawnPosition.y, spawnPosition.z});
-        camera.position = spawnPosition;
+        const float spawnHeight = static_cast<float>(world.surfaceHeight(0, -7)) +
+                                  playerEyeHeight;
+        const Point3D safeSpawn{0.5f, spawnHeight, -6.5f};
+        physics.resetPlayer({safeSpawn.x, safeSpawn.y, safeSpawn.z});
+        camera.position = safeSpawn;
     }
 }
 
@@ -285,7 +263,9 @@ std::array<Point2D, 4> makeLineQuad(Point2D from, Point2D to) {
 void renderScene(int width, int height, const Camera& camera, const CameraBasis& basis,
                  const char* fpsText, bool settingsOpen, bool canSelectOpenGL,
                  const char* activeRenderer,
-                 SceneBuffers& buffers) {
+                 World::VoxelWorld& world, Point3D enemyPosition, int health,
+                 const std::array<std::uint32_t, 10>& inventory, std::size_t selectedSlot,
+                 const char* statusText, SceneBuffers& buffers) {
     const float focalLength = static_cast<float>(std::min(width, height)) * 0.8f;
     const float centerX = static_cast<float>(width) * 0.5f;
     const float centerY = static_cast<float>(height) * 0.5f;
@@ -294,83 +274,79 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     buffers.vertices.clear();
     buffers.indices.clear();
 
-    constexpr int platformTileCount = 1000;
-    constexpr int renderRadius = 32;
-    const int centerColumn = std::clamp(
-        static_cast<int>(std::floor(camera.position.x + platformTileCount * 0.5f)),
-        0, platformTileCount - 1);
-    const int centerRow = std::clamp(
-        static_cast<int>(std::floor(camera.position.z + platformTileCount * 0.5f)),
-        0, platformTileCount - 1);
-    const int firstColumn = std::max(0, centerColumn - renderRadius);
-    const int lastColumn = std::min(platformTileCount - 1, centerColumn + renderRadius);
-    const int firstRow = std::max(0, centerRow - renderRadius);
-    const int lastRow = std::min(platformTileCount - 1, centerRow + renderRadius);
-    constexpr float cubeBoundingRadius = 0.85f;
-
-    for (int row = firstRow; row <= lastRow; ++row) {
-        for (int column = firstColumn; column <= lastColumn; ++column) {
-            const Point3D center{static_cast<float>(column) - 499.5f, 0.7f,
-                                 static_cast<float>(row) - 499.5f};
-            const Point3D cameraRelative = subtract(camera.position, center);
-            const Point3D centerRelative = subtract(center, camera.position);
-            const float centerDepth = dot(centerRelative, basis.forward);
-            if (centerDepth <= -cubeBoundingRadius) {
-                continue;
+    constexpr int chunkRadius = 1;
+    world.appendVisibleFaces(static_cast<int>(std::floor(camera.position.x)),
+                             static_cast<int>(std::floor(camera.position.z)),
+                             chunkRadius, buffers.sourceFaces);
+    auto appendWorldFace = [&](const std::array<World::Point, 4>& points,
+                               const std::array<float, 4>& color) {
+        RenderFace face{};
+        face.color = {color[0], color[1], color[2], color[3]};
+        float depthTotal = 0.0f;
+        float minimumX = static_cast<float>(width);
+        float minimumY = static_cast<float>(height);
+        float maximumX = 0.0f;
+        float maximumY = 0.0f;
+        for (std::size_t vertex = 0; vertex < points.size(); ++vertex) {
+            const Point3D relative{points[vertex].x - camera.position.x,
+                                   points[vertex].y - camera.position.y,
+                                   points[vertex].z - camera.position.z};
+            const float depth = dot(relative, basis.forward);
+            if (depth <= 0.1f) {
+                return;
             }
-            if (centerDepth > cubeBoundingRadius) {
-                const float projectedRadius =
-                    focalLength * cubeBoundingRadius / (centerDepth - cubeBoundingRadius);
-                const float projectedCenterX =
-                    centerX + dot(centerRelative, basis.right) * focalLength / centerDepth;
-                const float projectedCenterY =
-                    centerY - dot(centerRelative, basis.up) * focalLength / centerDepth;
-                if (projectedCenterX + projectedRadius < 0.0f ||
-                    projectedCenterX - projectedRadius > static_cast<float>(width) ||
-                    projectedCenterY + projectedRadius < 0.0f ||
-                    projectedCenterY - projectedRadius > static_cast<float>(height)) {
-                    continue;
-                }
-            }
-            const bool cullBackFaces = dot(cameraRelative, cameraRelative) > 1.0f;
-
-            std::array<Point2D, 8> projectedVertices{};
-            std::array<float, 8> depths{};
-            for (std::size_t i = 0; i < cubeVertices.size(); ++i) {
-                const Point3D world = add(cubeVertices[i], center);
-                const Point3D relative = subtract(world, camera.position);
-                depths[i] = dot(relative, basis.forward);
-                if (depths[i] > 0.1f) {
-                    projectedVertices[i] = {
-                        centerX + dot(relative, basis.right) * focalLength / depths[i],
-                        centerY - dot(relative, basis.up) * focalLength / depths[i]
-                    };
-                }
-            }
-
-            for (std::size_t i = 0; i < faceVertices.size(); ++i) {
-                if (cullBackFaces && dot(faceNormals[i], cameraRelative) <= 0.0f) {
-                    continue;
-                }
-                RenderFace face{};
-                face.color = faceColors[i];
-                bool visible = true;
-                float depthAccumulator = 0.0f;
-                for (std::size_t vertex = 0; vertex < face.vertices.size(); ++vertex) {
-                    const int index = faceVertices[i][vertex];
-                    if (depths[index] <= 0.1f) {
-                        visible = false;
-                        break;
-                    }
-                    face.vertices[vertex] = projectedVertices[index];
-                    depthAccumulator += depths[index];
-                }
-                if (visible) {
-                    face.depth = depthAccumulator * 0.25f;
-                    buffers.faces.push_back(face);
-                }
-            }
+            face.vertices[vertex] = {
+                centerX + dot(relative, basis.right) * focalLength / depth,
+                centerY - dot(relative, basis.up) * focalLength / depth
+            };
+            minimumX = std::min(minimumX, face.vertices[vertex].x);
+            minimumY = std::min(minimumY, face.vertices[vertex].y);
+            maximumX = std::max(maximumX, face.vertices[vertex].x);
+            maximumY = std::max(maximumY, face.vertices[vertex].y);
+            depthTotal += depth;
         }
+        if (maximumX < 0.0f || minimumX > static_cast<float>(width) ||
+            maximumY < 0.0f || minimumY > static_cast<float>(height)) {
+            return;
+        }
+        face.depth = depthTotal * 0.25f;
+        buffers.faces.push_back(face);
+    };
+    for (const World::Face* face : buffers.sourceFaces) {
+        const World::Point center{
+            (face->vertices[0].x + face->vertices[2].x) * 0.5f,
+            (face->vertices[0].y + face->vertices[2].y) * 0.5f,
+            (face->vertices[0].z + face->vertices[2].z) * 0.5f
+        };
+        const Point3D toCamera{camera.position.x - center.x,
+                               camera.position.y - center.y,
+                               camera.position.z - center.z};
+        if (face->normal[0] * toCamera.x + face->normal[1] * toCamera.y +
+                face->normal[2] * toCamera.z <= 0.0f) {
+            continue;
+        }
+        appendWorldFace(face->vertices, face->color);
+    }
+
+    constexpr std::array<std::array<int, 4>, 6> cubeFaces{{
+        {{0, 1, 2, 3}}, {{4, 7, 6, 5}},
+        {{0, 4, 5, 1}}, {{3, 2, 6, 7}},
+        {{0, 3, 7, 4}}, {{1, 5, 6, 2}}
+    }};
+    constexpr std::array<Point3D, 8> enemyCube{{
+        {-0.35f, 0.0f, -0.35f}, {0.35f, 0.0f, -0.35f},
+        {0.35f, 1.1f, -0.35f}, {-0.35f, 1.1f, -0.35f},
+        {-0.35f, 0.0f, 0.35f}, {0.35f, 0.0f, 0.35f},
+        {0.35f, 1.1f, 0.35f}, {-0.35f, 1.1f, 0.35f}
+    }};
+    constexpr std::array<float, 4> enemyColor{{0.78f, 0.17f, 0.13f, 1.0f}};
+    for (const auto& side : cubeFaces) {
+        std::array<World::Point, 4> points{};
+        for (std::size_t vertex = 0; vertex < points.size(); ++vertex) {
+            const Point3D point = add(enemyPosition, enemyCube[side[vertex]]);
+            points[vertex] = {point.x, point.y, point.z};
+        }
+        appendWorldFace(points, enemyColor);
     }
     std::sort(buffers.faces.begin(), buffers.faces.end(),
               [](const RenderFace& left, const RenderFace& right) {
@@ -384,8 +360,31 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
     appendText(buffers, fpsText, 12.0f, 12.0f, 1.5f,
                {0.94f, 0.96f, 1.0f, 1.0f});
     appendText(buffers,
-               "WASD MOVE | SPACE JUMP | SHIFT RUN | CLICK LOOK | ESC SETTINGS",
+               "WASD MOVE SPACE JUMP E MINE F ATTACK RIGHT PLACE C CRAFT F5 SAVE F9 LOAD",
                12.0f, 28.0f, 1.0f, {0.94f, 0.96f, 1.0f, 1.0f});
+    const std::string healthText = "HP " + std::to_string(health);
+    appendText(buffers, healthText.c_str(), 12.0f, 42.0f, 1.0f,
+               {1.0f, 0.35f, 0.25f, 1.0f});
+    std::string hotbar = "HOTBAR 1DIRT " + std::to_string(inventory[0]) + " 2STONE " +
+                         std::to_string(inventory[1]) + " 3SAND " +
+                         std::to_string(inventory[2]) + " 4WOOD " +
+                         std::to_string(inventory[3]) + " 5LEAVES " +
+                         std::to_string(inventory[4]) + " 6PLANKS " +
+                         std::to_string(inventory[5]) + " STICKS " +
+                         std::to_string(inventory[9]) + " TOOLS " +
+                         std::to_string(inventory[8]) + " 7SNOW " +
+                         std::to_string(inventory[6]) + " 8GRASS " +
+                         std::to_string(inventory[7]);
+    appendText(buffers, hotbar.c_str(), 42.0f, 42.0f, 1.0f,
+               {0.94f, 0.96f, 1.0f, 1.0f});
+    const std::string selectedText = "SLOT " + std::to_string(selectedSlot + 1);
+    appendText(buffers, selectedText.c_str(), 12.0f, 56.0f, 1.0f,
+               {0.50f, 0.85f, 1.0f, 1.0f});
+    appendText(buffers, statusText, 12.0f, static_cast<float>(height) - 28.0f, 1.0f,
+               {0.94f, 0.96f, 1.0f, 1.0f});
+    appendText(buffers, "TOUCH LEFT MOVE RIGHT AIM TOP MINE PLACE BOTTOM JUMP",
+               12.0f, static_cast<float>(height) - 14.0f, 1.0f,
+               {0.78f, 0.82f, 0.88f, 1.0f});
     if (settingsOpen) {
         appendText(buffers, canSelectOpenGL
                                 ? "SETTINGS\n1 VULKAN\n2 OPENGL\nESC CLOSE"
@@ -400,7 +399,7 @@ void renderScene(int width, int height, const Camera& camera, const CameraBasis&
 
 namespace Engine {
 
-bool run(bool useOpenGL) {
+bool run(bool useOpenGL, bool verticalSync) {
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         std::cerr << "SDL_Init Error: " << SDL_GetError() << std::endl;
         return false;
@@ -425,8 +424,8 @@ bool run(bool useOpenGL) {
         return false;
     }
 
-    std::unique_ptr<Renderer> renderer = createRenderer(backend);
-    if (!renderer->initialize(window, rendererError)) {
+    std::unique_ptr<Renderer> renderer = createRenderer(backend, verticalSync);
+    if (!renderer->initialize(window, rendererError, verticalSync)) {
         std::cerr << (backend == RendererBackend::Vulkan ? "Vulkan" : "OpenGL")
                   << " renderer initialization failed: " << rendererError << std::endl;
         SDL_DestroyWindow(window);
@@ -445,7 +444,11 @@ bool run(bool useOpenGL) {
     std::uint64_t fpsUpdateTime = previousFrame;
     std::uint64_t fpsFrameCount = 0;
     std::string fpsText = "FPS: 0";
+    World::VoxelWorld world;
+    const Point3D spawnPosition{
+        0.5f, static_cast<float>(world.surfaceHeight(0, -7)) + playerEyeHeight, -6.5f};
     Camera camera;
+    camera.position = spawnPosition;
     Physics::PhysicsWorld physics;
     if (!physics.initialize()) {
         std::cerr << "Jolt Physics initialization failed" << std::endl;
@@ -454,11 +457,176 @@ bool run(bool useOpenGL) {
         SDL_Quit();
         return false;
     }
-    physics.createCube({0.0f, 0.7f, 0.0f}, {500.0f, 0.5f, 500.0f});
     physics.createPlayer({spawnPosition.x, spawnPosition.y, spawnPosition.z});
     SceneBuffers sceneBuffers;
     constexpr float mouseSensitivity = 0.0025f;
     bool jumpPressed = false;
+    std::array<std::uint32_t, 10> inventory{{0, 32, 16, 8, 0, 0, 0, 0, 0, 0}};
+    constexpr std::array<World::Block, 8> hotbarBlocks{{
+        World::Block::Dirt, World::Block::Stone, World::Block::Sand,
+        World::Block::Wood, World::Block::Leaves, World::Block::Planks,
+        World::Block::Snow, World::Block::Grass
+    }};
+    std::size_t selectedSlot = 0;
+    std::string statusText = "EXPLORE | E MINE | RIGHT PLACE | C CRAFT | F5 SAVE | F9 LOAD";
+    Point3D enemyPosition{5.5f,
+        static_cast<float>(world.surfaceHeight(5, -7)), -6.5f};
+    int health = 10;
+    int enemyHealth = 3;
+    float enemyAttackCooldown = 0.0f;
+    std::unordered_map<std::int64_t, std::pair<Physics::BodyHandle, std::uint64_t>>
+        terrainBodies;
+    std::vector<World::Point> surfacePoints;
+    std::vector<Physics::Vector3> colliderPositions;
+    auto terrainChunkKey = [](int chunkX, int chunkZ) {
+        return static_cast<std::int64_t>(
+            (static_cast<std::uint64_t>(static_cast<std::uint32_t>(chunkX)) << 32) |
+            static_cast<std::uint32_t>(chunkZ));
+    };
+    auto updateTerrainColliders = [&]() {
+        const int centerChunkX = static_cast<int>(
+            std::floor(camera.position.x / World::VoxelWorld::chunkSize));
+        const int centerChunkZ = static_cast<int>(
+            std::floor(camera.position.z / World::VoxelWorld::chunkSize));
+        for (int z = centerChunkZ - 2; z <= centerChunkZ + 2; ++z) {
+            for (int x = centerChunkX - 2; x <= centerChunkX + 2; ++x) {
+                const std::int64_t key = terrainChunkKey(x, z);
+                const std::uint64_t revision = world.chunkRevision(x, z);
+                const auto found = terrainBodies.find(key);
+                if (found != terrainBodies.end() && found->second.second == revision) {
+                    continue;
+                }
+                if (found != terrainBodies.end()) {
+                    physics.destroyBody(found->second.first);
+                    terrainBodies.erase(found);
+                }
+                world.surfacePositions(x, z, surfacePoints);
+                colliderPositions.clear();
+                colliderPositions.reserve(surfacePoints.size());
+                for (const World::Point point : surfacePoints) {
+                    colliderPositions.push_back({point.x, point.y, point.z});
+                }
+                const Physics::BodyHandle body =
+                    physics.createStaticCubeBatch(colliderPositions);
+                terrainBodies.emplace(key, std::make_pair(body, revision));
+            }
+        }
+        for (auto iterator = terrainBodies.begin(); iterator != terrainBodies.end();) {
+            const int chunkX = static_cast<int>(static_cast<std::uint32_t>(
+                static_cast<std::uint64_t>(iterator->first) >> 32));
+            const int chunkZ = static_cast<int>(static_cast<std::uint32_t>(iterator->first));
+            if (std::abs(chunkX - centerChunkX) > 2 || std::abs(chunkZ - centerChunkZ) > 2) {
+                physics.destroyBody(iterator->second.first);
+                iterator = terrainBodies.erase(iterator);
+            } else {
+                ++iterator;
+            }
+        }
+    };
+    updateTerrainColliders();
+
+    char* preferencePath = SDL_GetPrefPath("MyGame", "VoxelGame");
+    std::filesystem::path saveFile;
+    if (preferencePath) {
+        saveFile = std::filesystem::path(preferencePath) / "world.sav";
+        SDL_free(preferencePath);
+    } else {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Could not locate a world save directory: %s",
+                     SDL_GetError());
+        statusText = "SAVE DIRECTORY UNAVAILABLE";
+    }
+
+    auto inventorySlot = [](World::Block block) -> std::size_t {
+        switch (block) {
+        case World::Block::Dirt: return 0;
+        case World::Block::Stone: return 1;
+        case World::Block::Sand: return 2;
+        case World::Block::Wood: return 3;
+        case World::Block::Leaves: return 4;
+        case World::Block::Planks: return 5;
+        case World::Block::Snow: return 6;
+        case World::Block::Grass: return 7;
+        default: return 10;
+        }
+    };
+    auto mineTarget = [&]() {
+        const CameraBasis aim = makeCameraBasis(camera);
+        World::Position hit{};
+        World::Position previous{};
+        if (!world.raycast({camera.position.x, camera.position.y, camera.position.z},
+                           {aim.forward.x, aim.forward.y, aim.forward.z}, 6.0f, hit, previous)) {
+            statusText = "NO BLOCK IN REACH";
+            return;
+        }
+        const World::Block block = world.blockAt(hit.x, hit.y, hit.z);
+        if (block == World::Block::Bedrock) {
+            statusText = "BEDROCK CANNOT BE MINED";
+            return;
+        }
+        const std::size_t slot = inventorySlot(block);
+        if (world.setBlock(hit, World::Block::Air)) {
+            if (slot < inventory.size()) {
+                ++inventory[slot];
+            }
+            statusText = "BLOCK MINED";
+        }
+    };
+    auto placeTarget = [&]() {
+        const CameraBasis aim = makeCameraBasis(camera);
+        World::Position hit{};
+        World::Position previous{};
+        if (!world.raycast({camera.position.x, camera.position.y, camera.position.z},
+                           {aim.forward.x, aim.forward.y, aim.forward.z}, 6.0f, hit, previous)) {
+            statusText = "NO PLACEMENT TARGET";
+            return;
+        }
+        const World::Block block = hotbarBlocks[selectedSlot];
+        const std::size_t slot = inventorySlot(block);
+        const int playerX = static_cast<int>(std::floor(camera.position.x));
+        const int playerY = static_cast<int>(std::floor(camera.position.y - 1.0f));
+        const int playerZ = static_cast<int>(std::floor(camera.position.z));
+        if (slot >= inventory.size() || inventory[slot] == 0) {
+            statusText = "NO BLOCKS IN SLOT";
+        } else if (previous.x == playerX && previous.z == playerZ &&
+                   previous.y >= playerY && previous.y <= playerY + 2) {
+            statusText = "CANNOT PLACE IN PLAYER";
+        } else if (world.setBlock(previous, block)) {
+            --inventory[slot];
+            statusText = "BLOCK PLACED";
+        }
+    };
+    auto attackEnemy = [&]() {
+        const float dx = enemyPosition.x - camera.position.x;
+        const float dy = enemyPosition.y + 0.55f - camera.position.y;
+        const float dz = enemyPosition.z - camera.position.z;
+        const float distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+        const CameraBasis aim = makeCameraBasis(camera);
+        if (distance <= 0.0f || distance > 4.0f ||
+            (dx * aim.forward.x + dy * aim.forward.y + dz * aim.forward.z) / distance < 0.75f) {
+            statusText = "NO ENEMY IN REACH";
+            return;
+        }
+        enemyHealth -= inventory[8] > 0 ? 2 : 1;
+        if (enemyHealth <= 0) {
+            enemyHealth = 3;
+            enemyPosition = {static_cast<float>(std::floor(camera.position.x)) + 5.5f,
+                static_cast<float>(world.surfaceHeight(
+                    static_cast<int>(std::floor(camera.position.x)) + 5,
+                    static_cast<int>(std::floor(camera.position.z)))),
+                static_cast<float>(std::floor(camera.position.z))};
+            statusText = "ENEMY DEFEATED";
+        } else {
+            statusText = "ENEMY HIT";
+        }
+    };
+    SDL_FingerID moveFinger = 0;
+    SDL_FingerID lookFinger = 0;
+    bool movingByTouch = false;
+    bool lookingByTouch = false;
+    float touchForward = 0.0f;
+    float touchRight = 0.0f;
+    float touchStartX = 0.0f;
+    float touchStartY = 0.0f;
 
     auto switchRenderer = [&](RendererBackend nextBackend) {
         if (nextBackend == backend) {
@@ -480,8 +648,8 @@ bool run(bool useOpenGL) {
             return;
         }
 
-        std::unique_ptr<Renderer> nextRenderer = createRenderer(nextBackend);
-        if (!nextRenderer->initialize(nextWindow, rendererError)) {
+        std::unique_ptr<Renderer> nextRenderer = createRenderer(nextBackend, verticalSync);
+        if (!nextRenderer->initialize(nextWindow, rendererError, verticalSync)) {
             std::cerr << "Could not initialize selected renderer: " << rendererError << std::endl;
             nextRenderer->shutdown();
             SDL_DestroyWindow(nextWindow);
@@ -510,16 +678,118 @@ bool run(bool useOpenGL) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT || event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
                 isRunning = false;
-            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !mouseCaptured &&
-                       !settingsOpen) {
-                mouseCaptured = SDL_SetWindowRelativeMouseMode(window, true);
-                if (!mouseCaptured) {
-                    std::cerr << "Could not capture mouse: " << SDL_GetError() << std::endl;
+            } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN && !settingsOpen) {
+                if (event.button.button == SDL_BUTTON_LEFT) {
+                    if (!mouseCaptured) {
+                        mouseCaptured = SDL_SetWindowRelativeMouseMode(window, true);
+                        if (!mouseCaptured) {
+                            std::cerr << "Could not capture mouse: " << SDL_GetError() << std::endl;
+                        }
+                    }
+                    mineTarget();
+                } else if (event.button.button == SDL_BUTTON_RIGHT) {
+                    placeTarget();
                 }
             } else if (event.type == SDL_EVENT_MOUSE_MOTION && mouseCaptured) {
                 camera.yaw += event.motion.xrel * mouseSensitivity;
                 camera.pitch = std::clamp(camera.pitch - event.motion.yrel * mouseSensitivity,
                                           -1.5f, 1.5f);
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       !settingsOpen && event.key.scancode >= SDL_SCANCODE_1 &&
+                       event.key.scancode <= SDL_SCANCODE_8) {
+                selectedSlot = static_cast<std::size_t>(
+                    event.key.scancode - SDL_SCANCODE_1);
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       !settingsOpen && event.key.scancode == SDL_SCANCODE_E) {
+                mineTarget();
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       !settingsOpen && event.key.scancode == SDL_SCANCODE_F) {
+                attackEnemy();
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       !settingsOpen && event.key.scancode == SDL_SCANCODE_C) {
+                if (inventory[3] > 0) {
+                    --inventory[3];
+                    inventory[5] += 4;
+                    statusText = "CRAFTED FOUR PLANKS";
+                } else if (inventory[5] >= 2) {
+                    inventory[5] -= 2;
+                    inventory[9] += 4;
+                    statusText = "CRAFTED FOUR STICKS";
+                } else if (inventory[1] >= 3 && inventory[9] >= 2) {
+                    inventory[1] -= 3;
+                    inventory[9] -= 2;
+                    ++inventory[8];
+                    statusText = "STONE PICK CRAFTED";
+                } else {
+                    statusText = "NEED WOOD, PLANKS OR STONE";
+                }
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       !settingsOpen && event.key.scancode == SDL_SCANCODE_F5) {
+                std::string saveError;
+                if (!saveFile.empty() && world.save(saveFile, inventory, saveError)) {
+                    statusText = "WORLD SAVED";
+                } else {
+                    statusText = saveError.empty() ? "SAVE DIRECTORY UNAVAILABLE" : saveError;
+                    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "World save failed: %s",
+                                 statusText.c_str());
+                }
+            } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
+                       !settingsOpen && event.key.scancode == SDL_SCANCODE_F9) {
+                std::string loadError;
+                if (!saveFile.empty() && world.load(saveFile, inventory, loadError)) {
+                    for (const auto& [key, body] : terrainBodies) {
+                        static_cast<void>(key);
+                        physics.destroyBody(body.first);
+                    }
+                    terrainBodies.clear();
+                    updateTerrainColliders();
+                    statusText = "WORLD LOADED";
+                } else {
+                    statusText = loadError.empty() ? "SAVE DIRECTORY UNAVAILABLE" : loadError;
+                    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "World load failed: %s",
+                                 statusText.c_str());
+                }
+            } else if (event.type == SDL_EVENT_FINGER_DOWN && !settingsOpen) {
+                if (event.tfinger.y > 0.9f && event.tfinger.x >= 0.35f &&
+                    event.tfinger.x < 0.85f) {
+                    selectedSlot = std::min<std::size_t>(
+                        7, static_cast<std::size_t>((event.tfinger.x - 0.35f) * 16.0f));
+                } else if (event.tfinger.x < 0.45f && !movingByTouch) {
+                    moveFinger = event.tfinger.fingerID;
+                    movingByTouch = true;
+                    touchStartX = event.tfinger.x;
+                    touchStartY = event.tfinger.y;
+                } else if (event.tfinger.x > 0.85f && event.tfinger.y > 0.78f) {
+                    jumpPressed = true;
+                } else if (event.tfinger.x > 0.85f && event.tfinger.y < 0.10f) {
+                    mineTarget();
+                } else if (event.tfinger.x > 0.85f && event.tfinger.y < 0.22f) {
+                    attackEnemy();
+                } else if (event.tfinger.x > 0.85f && event.tfinger.y < 0.44f) {
+                    placeTarget();
+                } else if (!lookingByTouch) {
+                    lookFinger = event.tfinger.fingerID;
+                    lookingByTouch = true;
+                }
+            } else if (event.type == SDL_EVENT_FINGER_MOTION && !settingsOpen) {
+                if (movingByTouch && event.tfinger.fingerID == moveFinger) {
+                    touchRight = std::clamp((event.tfinger.x - touchStartX) * 3.0f, -1.0f, 1.0f);
+                    touchForward =
+                        std::clamp((touchStartY - event.tfinger.y) * 3.0f, -1.0f, 1.0f);
+                } else if (lookingByTouch && event.tfinger.fingerID == lookFinger) {
+                    camera.yaw += event.tfinger.dx * 5.0f;
+                    camera.pitch = std::clamp(camera.pitch - event.tfinger.dy * 5.0f,
+                                              -1.5f, 1.5f);
+                }
+            } else if (event.type == SDL_EVENT_FINGER_UP) {
+                if (movingByTouch && event.tfinger.fingerID == moveFinger) {
+                    movingByTouch = false;
+                    touchForward = 0.0f;
+                    touchRight = 0.0f;
+                }
+                if (lookingByTouch && event.tfinger.fingerID == lookFinger) {
+                    lookingByTouch = false;
+                }
             } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat &&
                        event.key.scancode == SDL_SCANCODE_ESCAPE) {
                 if (mouseCaptured) {
@@ -558,9 +828,44 @@ bool run(bool useOpenGL) {
         previousFrame = now;
         const CameraBasis cameraBasis = makeCameraBasis(camera);
         if (!settingsOpen) {
-            movePlayer(physics, camera, SDL_GetKeyboardState(nullptr), jumpPressed, deltaTime);
+            const bool* keys = SDL_GetKeyboardState(nullptr);
+            float forward = static_cast<float>(keys[SDL_SCANCODE_W]) -
+                            static_cast<float>(keys[SDL_SCANCODE_S]);
+            float right = static_cast<float>(keys[SDL_SCANCODE_D]) -
+                          static_cast<float>(keys[SDL_SCANCODE_A]);
+            if (movingByTouch) {
+                forward = touchForward;
+                right = touchRight;
+            }
+            const bool sprint = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
+            movePlayer(physics, camera, forward, right, sprint, jumpPressed, deltaTime, world);
+            updateTerrainColliders();
         }
         jumpPressed = false;
+        enemyAttackCooldown = std::max(0.0f, enemyAttackCooldown - deltaTime);
+        const float enemyDx = camera.position.x - enemyPosition.x;
+        const float enemyDz = camera.position.z - enemyPosition.z;
+        const float enemyDistance = std::sqrt(enemyDx * enemyDx + enemyDz * enemyDz);
+        if (enemyDistance > 1.15f && enemyDistance < 24.0f) {
+            const float travel = std::min(1.1f * deltaTime, enemyDistance - 1.0f);
+            enemyPosition.x += enemyDx / enemyDistance * travel;
+            enemyPosition.z += enemyDz / enemyDistance * travel;
+            enemyPosition.y = static_cast<float>(world.surfaceHeight(
+                static_cast<int>(std::floor(enemyPosition.x)),
+                static_cast<int>(std::floor(enemyPosition.z))));
+        } else if (enemyDistance <= 1.15f && enemyAttackCooldown == 0.0f) {
+            health = std::max(0, health - 1);
+            enemyAttackCooldown = 1.0f;
+            statusText = health == 0 ? "YOU WERE DEFEATED" : "ENEMY HIT";
+            if (health == 0) {
+                health = 10;
+                physics.resetPlayer({spawnPosition.x, spawnPosition.y, spawnPosition.z});
+                camera.position = spawnPosition;
+                enemyPosition = {5.5f,
+                    static_cast<float>(world.surfaceHeight(5, -7)), -6.5f};
+                statusText = "RESPAWNED";
+            }
+        }
 
         ++fpsFrameCount;
         const double fpsInterval = static_cast<double>(now - fpsUpdateTime) /
@@ -584,7 +889,8 @@ bool run(bool useOpenGL) {
             const char* activeRenderer =
                 backend == RendererBackend::Vulkan ? "ACTIVE VULKAN" : "ACTIVE OPENGL";
             renderScene(width, height, camera, cameraBasis, fpsText.c_str(), settingsOpen,
-                        openGLAvailable, activeRenderer, sceneBuffers);
+                        openGLAvailable, activeRenderer, world, enemyPosition, health,
+                        inventory, selectedSlot, statusText.c_str(), sceneBuffers);
             if (!renderer->render(sceneBuffers.vertices, sceneBuffers.indices, rendererError)) {
                 std::cerr << "Frame rendering failed: " << rendererError << std::endl;
                 succeeded = false;

@@ -18,12 +18,6 @@ project(MyGameWindows LANGUAGES C CXX)
 
 include(FetchContent)
 
-set(ULTRALIGHT_SDK_ROOT "$ENV{ULTRALIGHT_SDK_ROOT}" CACHE PATH
-    "Path to the extracted Ultralight SDK (download from https://ultralig.ht/download)")
-if(NOT ULTRALIGHT_SDK_ROOT AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/SDK/include/AppCore/AppCore.h")
-    set(ULTRALIGHT_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/SDK")
-endif()
-
 # Dependency Declarations
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
@@ -59,57 +53,16 @@ target_link_libraries(MyGame PRIVATE
     MyGameCommon
     ws2_32
     winmm
-    comctl32
 )
 
-if(ULTRALIGHT_SDK_ROOT)
-    set(ULTRALIGHT_INCLUDE_DIR "${ULTRALIGHT_SDK_ROOT}/include")
-    if(EXISTS "${ULTRALIGHT_SDK_ROOT}/lib/Ultralight.lib")
-        set(ULTRALIGHT_LIB_DIR "${ULTRALIGHT_SDK_ROOT}/lib")
-    else()
-        set(ULTRALIGHT_LIB_DIR "${ULTRALIGHT_SDK_ROOT}/lib/win/x64")
-    endif()
-    set(ULTRALIGHT_BIN_DIR "${ULTRALIGHT_SDK_ROOT}/bin")
-    foreach(required_file
-        "${ULTRALIGHT_INCLUDE_DIR}/AppCore/AppCore.h"
-        "${ULTRALIGHT_INCLUDE_DIR}/JavaScriptCore/JavaScript.h"
-        "${ULTRALIGHT_LIB_DIR}/Ultralight.lib"
-        "${ULTRALIGHT_LIB_DIR}/UltralightCore.lib"
-        "${ULTRALIGHT_LIB_DIR}/WebCore.lib"
-        "${ULTRALIGHT_LIB_DIR}/AppCore.lib")
-        if(NOT EXISTS "${required_file}")
-            message(FATAL_ERROR "Ultralight SDK is incomplete: missing ${required_file}")
-        endif()
-    endforeach()
-    if(NOT IS_DIRECTORY "${ULTRALIGHT_BIN_DIR}" OR
-       NOT IS_DIRECTORY "${ULTRALIGHT_SDK_ROOT}/resources")
-        message(FATAL_ERROR
-            "Ultralight SDK must include its bin and resources directories: ${ULTRALIGHT_SDK_ROOT}")
-    endif()
-    if(NOT MSVC)
-        message(FATAL_ERROR
-            "The Ultralight Windows SDK requires an MSVC-compatible toolchain. "
-            "Configure with Visual Studio or clang-cl.")
-    endif()
-
-    target_compile_definitions(MyGame PRIVATE MYGAME_HAS_ULTRALIGHT=1)
-    target_include_directories(MyGame PRIVATE "${ULTRALIGHT_INCLUDE_DIR}")
-    target_link_directories(MyGame PRIVATE "${ULTRALIGHT_LIB_DIR}")
-    target_link_libraries(MyGame PRIVATE Ultralight UltralightCore WebCore AppCore)
+if(DEFINED ENV{VULKAN_SDK} AND
+   EXISTS "$ENV{VULKAN_SDK}/Bin/vulkan-1.dll")
     add_custom_command(TARGET MyGame POST_BUILD
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                "${ULTRALIGHT_BIN_DIR}"
-                "$<TARGET_FILE_DIR:MyGame>"
-        COMMAND "${CMAKE_COMMAND}" -E copy_directory
-                "${ULTRALIGHT_SDK_ROOT}/resources"
-                "$<TARGET_FILE_DIR:MyGame>/assets/resources"
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "$ENV{VULKAN_SDK}/Bin/vulkan-1.dll"
+                "$<TARGET_FILE_DIR:MyGame>/vulkan-1.dll"
         VERBATIM
     )
-else()
-    message(WARNING
-        "Ultralight SDK not found. MyGame will use a native renderer-selection dialog. "
-        "Set ULTRALIGHT_SDK_ROOT to enable the HTML/CSS/JS launcher.")
-    target_compile_definitions(MyGame PRIVATE MYGAME_HAS_ULTRALIGHT=0)
 endif()
 
 if(DEFINED OUT_DIR)

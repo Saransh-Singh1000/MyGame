@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(MyGameCommon LANGUAGES CXX C)
 
+option(MYGAME_BUILD_TESTS "Build MyGame unit tests" OFF)
+
 include(FetchContent)
 
 set(TARGET_HELLO_WORLD OFF CACHE BOOL "" FORCE)
@@ -52,3 +54,14 @@ endif()
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/VulkanShaders.cmake")
 mygame_embed_vulkan_shaders(MyGameCommon)
+
+if(MYGAME_BUILD_TESTS)
+    enable_testing()
+    add_executable(MyGameVoxelWorldTests
+        tests/voxel_world_tests.cpp
+        src/world/voxel_world.cpp
+    )
+    target_compile_features(MyGameVoxelWorldTests PRIVATE cxx_std_20)
+    target_include_directories(MyGameVoxelWorldTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    add_test(NAME MyGameVoxelWorldTests COMMAND MyGameVoxelWorldTests)
+endif()

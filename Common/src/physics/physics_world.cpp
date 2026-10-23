@@ -200,6 +200,16 @@ Cube PhysicsWorld::createCube(Vector3 position, Vector3 halfExtents) {
     return {{bodyId.GetIndexAndSequenceNumber()}, position, halfExtents};
 }
 
+void PhysicsWorld::destroyBody(BodyHandle body) {
+    if (!impl_->initialized || !body.isValid()) {
+        return;
+    }
+    const JPH::BodyID bodyId(body.value);
+    JPH::BodyInterface& bodyInterface = impl_->physicsSystem.GetBodyInterface();
+    bodyInterface.RemoveBody(bodyId);
+    bodyInterface.DestroyBody(bodyId);
+}
+
 BodyHandle PhysicsWorld::createStaticCubeBatch(std::span<const Vector3> positions,
                                                Vector3 halfExtents) {
     if (positions.empty()) {

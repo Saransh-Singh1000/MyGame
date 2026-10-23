@@ -42,6 +42,7 @@ public:
 
     bool initialize();
     Cube createCube(Vector3 position, Vector3 halfExtents = {0.5f, 0.5f, 0.5f});
+    void destroyBody(BodyHandle body);
     BodyHandle createStaticCubeBatch(std::span<const Vector3> positions,
                                     Vector3 halfExtents = {0.5f, 0.5f, 0.5f});
     Sphere createSphere(Vector3 position, float radius = 0.5f);

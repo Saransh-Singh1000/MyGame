@@ -2,37 +2,41 @@
 
 ## Gameplay
 
-The 1000x1000 cube platform has solid Jolt Physics collisions. Use **WASD** to walk,
-**Space** to jump, **Shift** to run, and click to capture the mouse for looking
-around. Press **Esc** to release the mouse and open renderer settings. Gravity
-pulls the player onto the platform; falling below Y = -50 returns the player to
-the starting position. Nearby platform tiles are rendered as individual cubes,
-while a single equivalent Jolt box collider keeps the million-tile floor efficient.
+The game now generates a seeded, chunked voxel landscape with grassland, desert,
+snow, caves, trees, water bodies, and clouds. Chunk meshes contain exposed block
+faces and distant chunks are unloaded from memory while terrain edits remain
+saved. Terrain has Jolt collision. A hostile creature follows nearby players.
 
-The shared `physics/physics_world.hpp` API exposes `PhysicsWorld::createCube`
-and `PhysicsWorld::createSphere` for adding positioned physics objects. For many
-stationary cubes, `PhysicsWorld::createStaticCubeBatch` combines them into one
-Jolt static body; all cubes in that batch share its `BodyHandle`.
+- **WASD** move, **Space** jump, **Shift** sprint, and mouse movement looks.
+  Click to capture the mouse; **Esc** releases it and opens renderer settings.
+- **E** mines the block under the crosshair, **F** attacks a nearby enemy, and
+  right-click places the selected block. **1–8** select the hotbar item.
+- **C** crafts: one wood block into four planks, two planks into four sticks,
+  then three stone plus two sticks into a stone pick.
+- **F5** saves terrain edits and inventory; **F9** loads them.
+- Touch controls use the left side to move, the right side to look, top-right
+  tap zones to mine/attack/place, the bottom-right to jump, and the bottom
+  hotbar area to select a block.
 
-Choose **1** for Vulkan or **2** for OpenGL; the menu shows the active renderer.
-Press **Esc** again to close settings.
+Choose **1** for Vulkan or **2** for OpenGL in renderer settings. Android uses
+Vulkan. This is an original voxel-game implementation inspired by common
+chunked-world techniques; it does not include vkCraft source.
 
 ## Performance optimizations
 
-- **Scene geometry:** The platform contains 1,000 x 1,000 tiles, but rendering
-  considers only a 65 x 65 area around the player (at most 4,225 tiles). It
-  rejects tiles behind the camera and outside the screen, and skips back-facing
-  cube faces. Visible geometry is submitted in one indexed draw call.
-- **Physics:** The million-tile floor uses one equivalent Jolt box collider.
-  Static cube batches use one compound body and share a box shape. Jolt's
-  worker pool uses available hardware threads while leaving one for other work
-  when possible. Physics uses a fixed 60 Hz step and caps catch-up at six steps
-  per update.
+- **Scene geometry:** The world is divided into 16 x 16 x 40 voxel chunks.
+  Cached chunk meshes contain only exposed block faces. The renderer limits
+  visible chunks around the player, rejects back-facing/off-screen faces, sorts
+  visible faces for painter-style depth, and submits indexed geometry in one
+  draw call.
+- **Physics:** Nearby terrain collision is represented by chunk-level Jolt
+  compound bodies with shared box shapes; bodies outside the active area are
+  removed. Jolt's worker pool uses available hardware threads while leaving one
+  for other work when possible. Physics uses a fixed 60 Hz step and caps
+  catch-up at six steps per update.
 - **CPU-side geometry memory:** Scene vectors reserve capacity for the expected
   nearby geometry and are cleared and reused between frames, avoiding repeated
-  allocations in typical frames. Their initial vertex/index reservations are
-  sized for six faces per nearby tile rather than a larger unnecessary
-  overestimate.
+  allocations in typical frames.
 - **Command buffers and multi-threading:** Vulkan has two reusable command
   buffers and two frames in flight, with per-frame synchronization. This allows
   CPU work for a later frame to overlap GPU work where synchronization permits.
@@ -52,21 +56,32 @@ Press **Esc** again to close settings.
   depth/MSAA attachments in the current scene. There are no explicit
   tile-memory hints or transient attachments; the swapchain color image must
   be stored for presentation, so dedicated tile-based-GPU optimizations are
-  not currently implemented. Vulkan FIFO presentation and OpenGL vertical sync
-  pace rendering to the display where supported instead of continuously
-  rendering uncapped frames.
+  not currently implemented.
+- **Frame pacing:** VSync is enabled by default. Windows and Linux builds accept
+  `--uncapped` to disable Vulkan/OpenGL synchronization when the driver supports
+  it, for benchmarking. Uncapped mode can tear, consume more power, or still be
+  limited by the display/driver. Chunk generation and meshing currently run on
+  the game thread, and software projection/painter sorting are CPU costs.
+  Consequently, 1,000–2,000 FPS is not guaranteed and is unrealistic on many
+  systems; the uncapped switch only removes the application's VSync limit.
 
-## Windows launcher
+The game has a basic single-enemy loop, simple block recipes, static water/cloud
+voxels, and saves modified blocks plus inventory. It does not yet include
+advanced pathfinding, swimming, animated weather, crafting stations, multiplayer,
+or a fully GPU-native 3D renderer.
 
-The shared launcher page (HTML, CSS, and JavaScript) is embedded in
-`Common/include/launcher/launcher_page.hpp` for platform-specific launcher hosts
-to reuse. The Windows release ZIP includes the Ultralight runtime, and the
-Windows release workflow downloads the 64-bit Ultralight 1.4.0 SDK while
-building. For local Windows builds, download and extract the SDK from
-[ultralig.ht/download](https://ultralig.ht/download), then configure CMake with
-`-DULTRALIGHT_SDK_ROOT="C:\path\to\ultralight-sdk"` or set the
-`ULTRALIGHT_SDK_ROOT` environment variable. Builds without the SDK use a native
-renderer-selection dialog instead.
+## Desktop builds and release files
+
+Windows and Linux start directly in the game; there is no separate launcher.
+Each desktop release publishes its native executable as an individual file, not
+a ZIP. The Windows release also publishes `vulkan-1.dll`; keep it beside the
+executable when distributing it.
+
+SDL and the C/C++ runtime are linked statically where supported. Graphics drivers
+and operating-system windowing libraries cannot be bundled portably: the target
+machine must provide a Vulkan driver/loader and the platform's required display
+libraries. Linux builds therefore require compatible system Vulkan, OpenGL, and
+SDL windowing dependencies.
 
 ## Vulkan shaders
 
