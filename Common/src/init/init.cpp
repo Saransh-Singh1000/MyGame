@@ -79,8 +79,8 @@ struct SceneBuffers {
 
     SceneBuffers() {
         faces.reserve(4225 * faceVertices.size());
-        vertices.reserve(4225 * faceVertices.size() * 5 * 4);
-        indices.reserve(4225 * faceVertices.size() * 5 * 6);
+        vertices.reserve(4225 * faceVertices.size() * 4);
+        indices.reserve(4225 * faceVertices.size() * 6);
     }
 };
 

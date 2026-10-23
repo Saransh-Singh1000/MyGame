@@ -242,14 +242,7 @@ bool VulkanRenderer::createSwapchain(std::string& error) {
         error = vulkanError("vkGetPhysicalDeviceSurfacePresentModesKHR", result);
         return false;
     }
-    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
-    if (std::find(presentModes.begin(), presentModes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) !=
-        presentModes.end()) {
-        presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
-    } else if (std::find(presentModes.begin(), presentModes.end(), VK_PRESENT_MODE_MAILBOX_KHR) !=
-               presentModes.end()) {
-        presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-    }
+    const VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
 
     if (capabilities.currentExtent.width != std::numeric_limits<std::uint32_t>::max()) {
         swapchainExtent_ = capabilities.currentExtent;
@@ -588,9 +581,14 @@ bool VulkanRenderer::ensureBuffer(Buffer& buffer, VkDeviceSize requiredSize,
     if (requiredSize == 0 || buffer.capacity >= requiredSize) {
         return true;
     }
+    VkDeviceSize capacity = requiredSize;
+    if (buffer.capacity > 0 &&
+        buffer.capacity <= std::numeric_limits<VkDeviceSize>::max() - buffer.capacity / 2) {
+        capacity = std::max(capacity, buffer.capacity + buffer.capacity / 2);
+    }
     destroyBuffer(buffer);
     VkBufferCreateInfo bufferInfo{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferInfo.size = requiredSize;
+    bufferInfo.size = capacity;
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     VkResult result = vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer.handle);
@@ -631,7 +629,7 @@ bool VulkanRenderer::ensureBuffer(Buffer& buffer, VkDeviceSize requiredSize,
         destroyBuffer(buffer);
         return false;
     }
-    buffer.capacity = requiredSize;
+    buffer.capacity = capacity;
     return true;
 }
 

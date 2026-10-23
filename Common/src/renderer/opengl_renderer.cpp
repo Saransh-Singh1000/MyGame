@@ -25,9 +25,9 @@ bool OpenGLRenderer::initialize(SDL_Window* window, std::string& error) {
         shutdown();
         return false;
     }
-    if (!SDL_GL_SetSwapInterval(0)) {
+    if (!SDL_GL_SetSwapInterval(1)) {
         SDL_LogWarn(SDL_LOG_CATEGORY_RENDER,
-                    "Could not disable OpenGL vertical synchronization: %s", SDL_GetError());
+                    "Could not enable OpenGL vertical synchronization: %s", SDL_GetError());
     }
 
     glDisable(GL_DEPTH_TEST);
